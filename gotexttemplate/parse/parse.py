@@ -700,12 +700,12 @@ class Tree:
     Root: Optional[ListNode]
     Mode: Mode
     text: str
-    funcs: List[Dict[str, Any]]
+    funcs: Optional[List[Dict[str, Any]]]
     lex: Optional[lexer]
     token: List[Optional[item]]
     peekCount: int
-    vars: List[str]
-    treeSet: Dict[str, 'Tree']
+    vars: Optional[List[str]]
+    treeSet: Optional[Dict[str, 'Tree']]
     actionLine: int
     mode: Mode
 
@@ -717,12 +717,12 @@ class Tree:
         self.Mode = Mode.ModeNone  # parsing mode.
         self.text = text if text is not None else ''  # text parsed to create the template (or its parent)
         # Parsing only; cleared after parse.
-        self.funcs = funcs if funcs is not None else []
+        self.funcs = funcs
         self.lex = None
         self.token = [None, None, None]  # three-token lookahead for parser.
         self.peekCount = 0
-        self.vars = []  # variables defined at the moment.
-        self.treeSet = {}
+        self.vars = None  # variables defined at the moment.
+        self.treeSet = None
         self.actionLine = 0   # line of left delim starting action
         self.mode = Mode.ModeNone
 
@@ -797,6 +797,161 @@ class Tree:
         lineNum = 1 + text.count('\n')
         context = n.String()
         return '{}:{}:{}'.format(tree.ParseName, lineNum, byteNum), context
+
+    def errorf(self, format: str, *args: Any) -> None:
+        """errorf formats the error and terminates processing."""
+        self.Root = None
+        format = "template: %s:%d: %s".format(self.ParseName, self.token[0].line, format)
+        raise ParseError(format.format(*args))
+
+    # error terminates processing.
+    def error(self, err: str):
+        self.errorf("%s", err)
+
+    # expect consumes the next token and guarantees it has the required type.
+    def expect(self, expected: itemType, context: str) -> item:
+        token = self.nextNonSpace()
+        if token.typ != expected:
+            self.unexpected(token, context)
+        return token
+
+    # expectOneOf consumes the next token and guarantees it has one of the required types.
+    def expectOneOf(self, expected1: itemType, expected2: itemType, context: str) -> item:
+        token = self.nextNonSpace()
+        if token.typ != expected1 and token.typ != expected2:
+            self.unexpected(token, context)
+        return token
+
+    # unexpected complains about the token and terminates processing.
+    def unexpected(self, token: item, context: str) -> None:
+        if token.typ == itemType.itemError:
+            extra = ""
+            if self.actionLine != 0 and self.actionLine != token.line:
+                extra = " in action started at {}:{}".format(self.ParseName, self.actionLine)
+                if token.val.endswith(" action"):
+                    extra = extra[len(" in action"):]  # avoid "action in action"
+            self.errorf("{}{}", token, extra)
+        self.errorf("unexpected %s in %s", token, context)
+
+    # recover is the handler that turns panics into returns from the top level of Parse.
+    def recover(self, errp: Any):
+        raise ParseError('Recover not supported')
+
+    # startParse initializes the parser, using the lexer.
+    def startParse(self, funcs: List[Dict[str, Any]], lex: lexer, treeSet: Dict[str, 'Tree']):
+        self.Root = None
+        self.lex = lex
+        self.vars = ["$"]
+        self.funcs = funcs
+        self.treeSet = treeSet
+
+    # stopParse terminates parsing.
+    def stopParse(self):
+        self.lex = None
+        self.vars = None
+        self.funcs = None
+        self.treeSet = None
+
+
+    """
+    Parse parses the template definition string to construct a representation of
+    the template for execution. If either action delimiter string is empty, the
+    default ("{{" or "}}") is used. Embedded template definitions are added to
+    the treeSet map.
+    """
+    def Parse(self, text: str, leftDelim: str, rightDelim: str,
+              treeSet: Dict[str, 'Tree'], funcs: List[Dict[str, Any]]) -> 'Tree':
+        # defer t.recover(&err)
+        self.ParseName = self.Name
+        emitComment = self.Mode & Mode.ParseComments != 0
+        self.startParse(funcs, lex(self.Name, text, leftDelim, rightDelim, emitComment), treeSet)
+        self.text = text
+        self.parse()
+        self.add()
+        self.stopParse()
+        return self
+
+
+    # add adds tree to t.treeSet.
+    def add(self):
+        tree = self.treeSet[self.Name]
+        if tree is None or IsEmptyTree(tree.Root):
+            self.treeSet[self.Name] = self
+            return
+        if not IsEmptyTree(self.Root):
+            self.errorf("template: multiple definition of template {}", self.Name)
+
+
+    # parse is the top-level parser for a template, essentially the same
+    # as itemList except it also parses {{define}} actions.
+    # It runs to EOF.
+    def parse(self):
+        self.Root = self.newList(self.peek().pos)
+        while self.peek().typ != itemType.itemEOF:
+            if self.peek().typ == itemType.itemLeftDelim:
+                delim = self.next()
+                if self.nextNonSpace().typ == itemType.itemDefine:
+                    newT = Tree("definition")  # name will be updated once we know it.
+                    newT.text = self.text
+                    newT.Mode = self.Mode
+                    newT.ParseName = self.ParseName
+                    newT.startParse(self.funcs, self.lex, self.treeSet)
+                    newT.parseDefinition()
+                    continue
+                self.backup2(delim)
+
+            n  = self.textOrAction()
+            if isinstance(n, nodeEnd) or isinstance(n, nodeElse):
+                self.errorf("unexpected {}", n)
+            else:
+                self.Root.append(n)
+
+
+    # parseDefinition parses a {{define}} ...  {{end}} template definition and
+    # installs the definition in t.treeSet. The "define" keyword has already
+    # been scanned.
+    def parseDefinition(self) -> None:
+        context = "define clause"
+        name = self.expectOneOf(itemType.itemString, itemType.itemRawString, context)
+        self.Name = name.val.strip('"\'')
+        self.expect(itemType.itemRightDelim, context)
+        self.Root, end = self.itemList()
+        if end.Type() != nodeEnd:
+            self.errorf("unexpected {} in {}", end, context)
+        self.add()
+        self.stopParse()
+
+    # itemList:
+    #	textOrAction*
+    # Terminates at {{end}} or {{else}}, returned separately.
+    def itemList(self) -> Tuple[ListNode, Node]:
+        list = self.newList(self.peekNonSpace().pos)
+        while self.peekNonSpace().typ != itemType.itemEOF:
+            n = self.textOrAction()
+            if n.Type() == nodeEnd or n.Type() == nodeElse:
+                return list, n
+            list.append(n)
+        self.errorf("unexpected EOF")
+        return list, next
+
+
+# IsEmptyTree reports whether this tree (node) is empty of everything but space or comments.
+def IsEmptyTree(n: Optional[Node]) -> bool:
+    if n is None:
+        return True
+    elif isinstance(n, ActionNode) or isinstance(n, CommentNode):
+        return True
+    elif isinstance(n, IfNode) or isinstance(n, ListNode):
+        for node in n.Nodes:
+            if not IsEmptyTree(node):
+                return False
+        return True
+    elif isinstance(n, RangeNode) or isinstance(n, TemplateNode) or isinstance(n, TextNode):
+        return len(n.Text.strip()) == 0
+    # elif isinstance(n, WithNode):
+    else:
+        raise ParseError('unknown node: {}'.format(n.String()))
+    # return False
 
 
 def Parse(name: str, text: str, leftDelim: str, rightDelim: str, funcs: List[Dict[str, Any]]) -> Dict[str, Tree]:
