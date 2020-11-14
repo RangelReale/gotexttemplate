@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"go/ast"
 	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/packages"
@@ -46,25 +47,22 @@ func realmain() {
 		log.Fatal(err)
 	}
 
-	if packages.PrintErrors(pkgs) > 0 {
-		os.Exit(1)
+	p := &Processor{
+		Packages:   pkgs,
+		Fset:       fset,
+		OutputPath: outputPath,
 	}
 
-	for _, pkg := range pkgs {
-		processPackage(pkg, fset, outputPath)
-	}
+	p.process()
 }
 
 type GenFile struct {
-	Fset   *token.FileSet
 	pb     strings.Builder
 	indent int
 }
 
-func NewGenFile(fset *token.FileSet) *GenFile {
-	return &GenFile{
-		Fset: fset,
-	}
+func NewGenFile() *GenFile {
+	return &GenFile{}
 }
 
 func (g *GenFile) Append(format string, args ...interface{}) {
@@ -74,10 +72,14 @@ func (g *GenFile) Append(format string, args ...interface{}) {
 	}
 }
 
-func (g *GenFile) Line(format string, args ...interface{}) {
+func (g *GenFile) StartLine() {
 	if g.indent > 0 {
 		g.Append(strings.Repeat("    ", g.indent))
 	}
+}
+
+func (g *GenFile) Line(format string, args ...interface{}) {
+	g.StartLine()
 	g.Append(format, args...)
 	g.Append("\n")
 }
@@ -101,8 +103,24 @@ func (g *GenFile) WriteFile(filename string) {
 	}
 }
 
-func processPackage(pkg *packages.Package, fset *token.FileSet, outputPath string) {
-	gf := NewGenFile(fset)
+type Processor struct {
+	Packages   []*packages.Package
+	Fset       *token.FileSet
+	OutputPath string
+}
+
+func (p *Processor) process() {
+	if packages.PrintErrors(p.Packages) > 0 {
+		os.Exit(1)
+	}
+
+	for _, pkg := range p.Packages {
+		p.processPackage(pkg)
+	}
+}
+
+func (p *Processor) processPackage(pkg *packages.Package) {
+	gf := NewGenFile()
 
 	gf.Line("# package: %s", pkg.PkgPath)
 	gf.NL()
@@ -113,7 +131,7 @@ func processPackage(pkg *packages.Package, fset *token.FileSet, outputPath strin
 		for _, name := range scope.Names() {
 			obj := scope.Lookup(name)
 
-			WriteObject(gf, obj, qual)
+			p.WriteObject(gf, obj, qual)
 
 			//scount := -1
 			//
@@ -155,12 +173,14 @@ func processPackage(pkg *packages.Package, fset *token.FileSet, outputPath strin
 		}
 	}
 
-	gf.WriteFile(filepath.Join(outputPath, fmt.Sprintf("%s.py", pkg.Name)))
+	gf.WriteFile(filepath.Join(p.OutputPath, fmt.Sprintf("%s.py", pkg.Name)))
 }
 
-func WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
+func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
 	var tname *types.TypeName
 	typ := obj.Type()
+
+	gf.Line("# %s", p.Fset.Position(obj.Pos()))
 
 	switch tobj := obj.(type) {
 	case *types.PkgName:
@@ -171,13 +191,21 @@ func WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
 		return
 
 	case *types.Const:
+		gf.Append("const")
 		//buf.WriteString("const")
 
 	case *types.TypeName:
 		tname = tobj
+		gf.Append("type")
 		//buf.WriteString("type")
 
 	case *types.Var:
+		if tobj.IsField() {
+			gf.Append("field")
+		} else {
+			gf.Append("var")
+		}
+
 		//if tobj.isField {
 		//	buf.WriteString("field")
 		//} else {
@@ -185,6 +213,19 @@ func WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
 		//}
 
 	case *types.Func:
+		gf.Append("def ")
+		gf.Append(tobj.Name())
+
+		gf.Line(":")
+		gf.I()
+		gf.Line("pass")
+		gf.D()
+		gf.NL()
+		//writeFuncName(buf, tobj, qf)
+		//if typ != nil {
+		//	WriteSignature(buf, typ.(*Signature), qf)
+		//}
+
 		//buf.WriteString("func ")
 		//writeFuncName(buf, tobj, qf)
 		//if typ != nil {
@@ -193,14 +234,17 @@ func WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
 		return
 
 	case *types.Label:
+		gf.Append("label")
 		//buf.WriteString("label")
 		typ = nil
 
 	case *types.Builtin:
+		gf.Append("builtin")
 		//buf.WriteString("builtin")
 		typ = nil
 
 	case *types.Nil:
+		gf.Append("nil")
 		//buf.WriteString("nil")
 		return
 
@@ -208,6 +252,7 @@ func WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
 		panic(fmt.Sprintf("writeObject(%T)", tobj))
 	}
 
+	gf.Append(" ")
 	//buf.WriteByte(' ')
 
 	// For package-level objects, qualify the name.
@@ -235,14 +280,15 @@ func WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
 	}
 
 	//buf.WriteByte(' ')
-	WriteType(gf, obj, typ, qf)
+	p.WriteType(gf, obj, typ, qf)
+	gf.NL()
 }
 
-func WriteType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier) {
-	writeType(gf, obj, typ, qf, make([]types.Type, 0, 8))
+func (p *Processor) WriteType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier) {
+	p.writeType(gf, obj, typ, qf, make([]types.Type, 0, 8))
 }
 
-func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier, visited []types.Type) {
+func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier, visited []types.Type) {
 	// Theoretically, this is a quadratic lookup algorithm, but in
 	// practice deeply nested composite types with unnamed component
 	// types are uncommon. This code is likely more efficient than
@@ -260,6 +306,11 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 		//buf.WriteString("<nil>")
 
 	case *types.Basic:
+		if t.Kind() == types.UnsafePointer {
+			//buf.WriteString("unsafe.")
+		}
+		gf.Append(t.Name())
+
 		//if t.kind == UnsafePointer {
 		//	buf.WriteString("unsafe.")
 		//}
@@ -275,10 +326,30 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 		//buf.WriteString(t.name)
 
 	case *types.Array:
+		if obj != nil {
+			gf.Append("Optional[")
+		}
+		gf.Append("List[")
+		p.writeType(gf, nil, t.Elem(), qf, visited)
+		gf.Append("]")
+		if obj != nil {
+			gf.Append("]")
+		}
+
 		//fmt.Fprintf(buf, "[%d]", t.len)
 		//writeType(buf, t.elem, qf, visited)
 
 	case *types.Slice:
+		if obj != nil {
+			gf.Append("Optional[")
+		}
+		gf.Append("List[")
+		p.writeType(gf, nil, t.Elem(), qf, visited)
+		gf.Append("]")
+		if obj != nil {
+			gf.Append("]")
+		}
+
 		//buf.WriteString("[]")
 		//writeType(buf, t.elem, qf, visited)
 
@@ -290,15 +361,28 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 		gf.Line("class %s:", obj.Name())
 		gf.I()
 		gf.Line(`""""`)
-		gf.Line("Source: %s", gf.Fset.Position(obj.Pos()))
+		gf.Line("Source: %s", p.Fset.Position(obj.Pos()))
 		gf.Line(`""""`)
 		for i := 0; i < t.NumFields(); i++ {
 			f := t.Field(i)
-			writeType(gf, obj, f.Type(), qf, visited)
+			fast := p.AstOf(f)
+			gf.StartLine()
+			gf.Append("%s: ", f.Name())
+			p.writeType(gf, obj, f.Type(), qf, visited)
+			if fast != nil {
+				switch xfast := fast.(type) {
+				case *ast.Field:
+					if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
+						gf.Append("  # %s", strings.TrimLeft(xfast.Comment.List[0].Text, "/ "))
+					}
+				}
+			}
+			gf.NL()
 		}
-		gf.Line("pass")
+		if t.NumFields() == 0 {
+			gf.Line("pass")
+		}
 		gf.D()
-		gf.NL()
 
 		//buf.WriteString("struct{")
 		//for i, f := range t.fields {
@@ -317,6 +401,10 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 		//buf.WriteByte('}')
 
 	case *types.Pointer:
+		gf.Append("Optional[")
+		p.writeType(gf, nil, t.Elem(), qf, visited)
+		gf.Append("]")
+
 		//buf.WriteByte('*')
 		//writeType(buf, t.base, qf, visited)
 
@@ -328,6 +416,8 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 		//writeSignature(buf, t, qf, visited)
 
 	case *types.Interface:
+		gf.Append("Any")
+
 		// We write the source-level methods and embedded types rather
 		// than the actual method set since resolved method signatures
 		// may have non-printable cycles if parameters have embedded
@@ -380,12 +470,26 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 		//buf.WriteByte('}')
 
 	case *types.Map:
+		if obj != nil {
+			gf.Append("Optional[")
+		}
+		gf.Append("Dict[")
+		p.writeType(gf, nil, t.Key(), qf, visited)
+		gf.Append(", ")
+		p.writeType(gf, nil, t.Elem(), qf, visited)
+		gf.Append("]")
+		if obj != nil {
+			gf.Append("]")
+		}
+
 		//buf.WriteString("map[")
 		//writeType(buf, t.key, qf, visited)
 		//buf.WriteByte(']')
 		//writeType(buf, t.elem, qf, visited)
 
 	case *types.Chan:
+		gf.Append("UNSUPPORTED_CHAN")
+
 		//var s string
 		//var parens bool
 		//switch t.dir {
@@ -421,9 +525,8 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 			// differently from named types at package level to avoid
 			// ambiguity.
 			s = xobj.Name()
-			gf.Line("# Source: %s", gf.Fset.Position(xobj.Pos()))
 		}
-		gf.Line(s)
+		gf.Append(s)
 
 		//s := "<Named w/o object>"
 		//if obj := t.obj; obj != nil {
@@ -441,4 +544,40 @@ func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier
 		// For externally defined implementations of Type.
 		//buf.WriteString(t.String())
 	}
+}
+
+type Poser interface {
+	Pos() token.Pos
+}
+
+func (p *Processor) FileOf(poser Poser) *ast.File {
+	for _, pkg := range p.Packages {
+		for _, file := range pkg.Syntax {
+			if file.Pos() <= poser.Pos() && file.End() > poser.Pos() {
+				return file
+			}
+		}
+	}
+	return nil
+}
+
+func (p *Processor) AstOf(typeFunc types.Object) (typeAst ast.Node) {
+	ast.Inspect(p.FileOf(typeFunc), func(node ast.Node) bool {
+		if node == nil {
+			return true
+		}
+
+		switch node.(type) {
+		case *ast.File:
+			// ignore
+		default:
+			if node.Pos() == typeFunc.Pos() {
+				//fmt.Printf("@@ OK! %d-%d || %d \n", node.Pos(), node.End(), typeFunc.Pos())
+				typeAst = node
+				return false
+			}
+		}
+		return true
+	})
+	return
 }
