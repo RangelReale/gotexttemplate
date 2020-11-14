@@ -1,41 +1,24 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
-	"go/ast"
-	"go/format"
-	"go/parser"
 	"go/token"
 	"go/types"
+	"golang.org/x/tools/go/packages"
 	"io/ioutil"
 	"log"
 	"os"
-	"path"
 	"path/filepath"
-	"golang.org/x/tools/go/packages"
 	"strings"
 )
 
 func main() {
-	flag.Parse()
-	if flag.NArg() < 2 {
-		flag.Usage()
-		os.Exit(1)
-	}
+	realmain()
+}
 
-	srcPath := filepath.Clean(path.Join(flag.Arg(0), "src", "text", "template"))
-	outputPath := filepath.Clean(flag.Arg(1))
-
-	fmt.Printf("Source path: %s...\n", srcPath)
-	fmt.Printf("Output path: %s...\n", outputPath)
-
-	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
-		fmt.Printf("File not found: %s", err)
-	}
-
-	const mode packages.LoadMode = packages.NeedName |
+func realmain() {
+	const loadmode packages.LoadMode = packages.NeedName |
 		packages.NeedFiles |
 		packages.NeedCompiledGoFiles |
 		packages.NeedImports |
@@ -46,207 +29,416 @@ func main() {
 		packages.NeedTypesInfo |
 		packages.NeedTypesInfo
 
-	pattern := "./..."
-
-	fset := token.NewFileSet()
-	cfg := &packages.Config{Fset: fset, Mode: mode, Dir: srcPath}
-	pkgs, err := packages.Load(cfg, pattern)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	for _, p := range pkgs {
-		fmt.Printf("Package: %s\n", p.PkgPath)
-		var pb strings.Builder
-		//for _, s := range p.Imports {
-		//	fmt.Printf("import %s\n", s.PkgPath)
-		//}
-		findInPackage(&pb, p, fset)
-		err = ioutil.WriteFile(filepath.Join(outputPath, fmt.Sprintf("%s.py", p.Name)), []byte(pb.String()), 0644)
-		if err != nil {
-			panic(err)
-		}
-	}
-}
-
-func findInPackage(pb *strings.Builder, pkg *packages.Package, fset *token.FileSet) {
-	for _, fileAst := range pkg.Syntax {
-		var lastname string
-		var err error
-		ast.Inspect(fileAst, func(n ast.Node) bool {
-			switch x := n.(type) {
-			case *ast.Ident:
-				lastname = x.Name
-			case *ast.TypeSpec:
-				if x.Type == nil {
-					return true
-				}
-				switch xt := x.Type.(type) {
-				case *ast.StructType:
-					_, err = fmt.Fprintf(pb, "# %s\n", fset.Position(x.Pos()))
-					if err != nil {
-						panic(err)
-					}
-
-					bases := BaseClass(xt.Fields, n, pkg.TypesInfo, fset)
-					baseclass := ""
-					if len(bases) > 0 {
-						baseclass = fmt.Sprintf("(%s)", strings.Join(bases, ", "))
-					}
-
-					fmt.Fprintf(pb, "class %s%s: \n", x.Name.Name, baseclass)
-					fmt.Fprintf(pb, "    pass\n")
-					fmt.Fprintf(pb, "\n")
-
-					fmt.Printf("Struct: %s -- %s\n", x.Name.Name, fset.Position(x.Pos()))
-					//fmt.Println(nodeString(x, fset))
-					//ast.Print(fset, structTy)
-					//findInFields(x.Fields, n, pkg.TypesInfo, fset)
-				case *ast.InterfaceType:
-					//fmt.Printf("Interface %s -- %s\n", lastname, fset.Position(x.Pos()))
-					//fmt.Println(nodeString(x, fset))
-					//ast.Print(fset, interfaceTy.Interface)
-					//findInFields(interfaceTy.Methods, n, pkg.TypesInfo, fset)
-				}
-			case *ast.FuncDecl:
-				//fmt.Printf("Function: %s -- %s\n", lastname, fset.Position(x.Pos()))
-			}
-			return true
-		})
-	}
-}
-
-func BaseClass(fl *ast.FieldList, n ast.Node, tinfo *types.Info, fset *token.FileSet) []string {
-	//type FieldReport struct {
-	//	Name string
-	//	Type types.Type
-	//}
-	//var reps []FieldReport
-
-	ret := []string{}
-
-	for _, field := range fl.List {
-		if field.Names == nil {
-			tv, ok := tinfo.Types[field.Type]
-			if !ok {
-				log.Fatal("not found", field.Type)
-			}
-
-			embName := fmt.Sprintf("%v", field.Type)
-
-			switch tv.Type.Underlying().(type) {
-			case *types.Struct:
-				ret = append(ret, embName)
-			case *types.Interface:
-				ret = append(ret, embName)
-			default:
-			}
-		}
-	}
-
-	return ret
-}
-
-func findInFields(fl *ast.FieldList, n ast.Node, tinfo *types.Info, fset *token.FileSet) {
-	type FieldReport struct {
-		Name string
-		Kind string
-		Type types.Type
-	}
-	var reps []FieldReport
-
-	for _, field := range fl.List {
-		if field.Names == nil {
-			tv, ok := tinfo.Types[field.Type]
-			if !ok {
-				log.Fatal("not found", field.Type)
-			}
-
-			embName := fmt.Sprintf("%v", field.Type)
-
-			_, hostIsStruct := n.(*ast.StructType)
-			var kind string
-
-			switch typ := tv.Type.Underlying().(type) {
-			case *types.Struct:
-				if hostIsStruct {
-					kind = "struct (s@s)"
-				} else {
-					kind = "struct (s@i)"
-				}
-				reps = append(reps, FieldReport{embName, kind, typ})
-			case *types.Interface:
-				if hostIsStruct {
-					kind = "interface (i@s)"
-				} else {
-					kind = "interface (i@i)"
-				}
-				reps = append(reps, FieldReport{embName, kind, typ})
-			default:
-			}
-		}
-	}
-
-	if len(reps) > 0 {
-		fmt.Printf("Found at %v\n%v\n", fset.Position(n.Pos()), nodeString(n, fset))
-
-		for _, report := range reps {
-			fmt.Printf("--> field '%s' is embedded %s: %s\n", report.Name, report.Kind, report.Type)
-		}
-		fmt.Println("")
-	}
-}
-
-// nodeString formats a syntax tree in the style of gofmt.
-func nodeString(n ast.Node, fset *token.FileSet) string {
-	var buf bytes.Buffer
-	format.Node(&buf, fset, n)
-	return buf.String()
-}
-
-func main2() {
 	flag.Parse()
-	if flag.NArg() == 0 {
+	if flag.NArg() < 1 {
 		flag.Usage()
 		os.Exit(1)
 	}
 
-	srcPath := filepath.Clean(path.Join(flag.Arg(0), "src", "text", "template"))
-	fmt.Printf("Source path: %s...\n", srcPath)
+	outputPath := filepath.Clean(flag.Arg(0))
 
-	if _, err := os.Stat(srcPath); os.IsNotExist(err) {
-		fmt.Printf("File not found: %s", err)
-	}
+	fmt.Printf("Output path: %s...\n", outputPath)
 
 	fset := token.NewFileSet()
-	template_dir, err := parser.ParseDir(fset, path.Join(srcPath), nil, parser.ParseComments)
-	// f is of type *ast.File
+	cfg := &packages.Config{Fset: fset, Mode: loadmode}
+	pkgs, err := packages.Load(cfg, "text/template", "text/template/parse")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if packages.PrintErrors(pkgs) > 0 {
+		os.Exit(1)
+	}
+
+	for _, pkg := range pkgs {
+		processPackage(pkg, fset, outputPath)
+	}
+}
+
+type GenFile struct {
+	Fset   *token.FileSet
+	pb     strings.Builder
+	indent int
+}
+
+func NewGenFile(fset *token.FileSet) *GenFile {
+	return &GenFile{
+		Fset: fset,
+	}
+}
+
+func (g *GenFile) Append(format string, args ...interface{}) {
+	_, err := fmt.Fprintf(&g.pb, format, args...)
 	if err != nil {
 		panic(err)
 	}
+}
 
-	parse_dir, err := parser.ParseDir(fset, path.Join(srcPath, "parse"), nil, parser.ParseComments)
-	// f is of type *ast.File
+func (g *GenFile) Line(format string, args ...interface{}) {
+	if g.indent > 0 {
+		g.Append(strings.Repeat("    ", g.indent))
+	}
+	g.Append(format, args...)
+	g.Append("\n")
+}
+
+func (g *GenFile) NL() {
+	g.Append("\n")
+}
+
+func (g *GenFile) I() {
+	g.indent++
+}
+
+func (g *GenFile) D() {
+	g.indent--
+}
+
+func (g *GenFile) WriteFile(filename string) {
+	err := ioutil.WriteFile(filename, []byte(g.pb.String()), 0644)
 	if err != nil {
 		panic(err)
 	}
+}
 
-	fmt.Println("Found imports:")
+func processPackage(pkg *packages.Package, fset *token.FileSet, outputPath string) {
+	gf := NewGenFile(fset)
 
-	for pname, p := range template_dir {
-		for fname, f := range p.Files {
-			for _, s := range f.Imports {
-				fmt.Printf("%s -- %s: %s\n", fname, pname, s.Path.Value)
-			}
+	gf.Line("# package: %s", pkg.PkgPath)
+	gf.NL()
+
+	if pkg.Types != nil {
+		qual := types.RelativeTo(pkg.Types)
+		scope := pkg.Types.Scope()
+		for _, name := range scope.Names() {
+			obj := scope.Lookup(name)
+
+			WriteObject(gf, obj, qual)
+
+			//scount := -1
+			//
+			//fmt.Printf("\t%s\n", types.ObjectString(obj, qual))
+			//
+			//var tname *types.TypeName
+			//typ := obj.Type()
+			//
+			//switch obj := obj.(type) {
+			//case *types.TypeName:
+			//	tname = obj
+			//}
+			//
+			//case *types.Struct:
+			//	gf.Line("class %s:", obj.Name())
+			//	gf.I()
+			//	scount = 0
+			//
+			//	if scount == 0 {
+			//		gf.Line("pass")
+			//	}
+			//	gf.D()
+			//	gf.NL()
+			//}
+
+			//if _, ok := obj.(*types.TypeName); ok {
+			//	for _, meth := range typeutil.IntuitiveMethodSet(obj.Type(), nil) {
+			//		if meth.Kind() == types.MethodExpr {
+			//			scount++
+			//		}
+			//		gf.Line("def %s():", meth.Obj().Name())
+			//		gf.I()
+			//		gf.Line("pass")
+			//		gf.D()
+			//
+			//		//fmt.Printf("\t%s\n", types.SelectionString(meth, qual))
+			//	}
+			//}
 		}
 	}
 
-	for pname, p := range parse_dir {
-		for fname, f := range p.Files {
-			for _, s := range f.Imports {
-				fmt.Printf("%s -- %s: %s\n", fname, pname, s.Path.Value)
-			}
+	gf.WriteFile(filepath.Join(outputPath, fmt.Sprintf("%s.py", pkg.Name)))
+}
+
+func WriteObject(gf *GenFile, obj types.Object, qf types.Qualifier) {
+	var tname *types.TypeName
+	typ := obj.Type()
+
+	switch tobj := obj.(type) {
+	case *types.PkgName:
+		//fmt.Fprintf(buf, "package %s", tobj.Name())
+		//if path := tobj.imported.path; path != "" && path != tobj.name {
+		//	fmt.Fprintf(buf, " (%q)", path)
+		//}
+		return
+
+	case *types.Const:
+		//buf.WriteString("const")
+
+	case *types.TypeName:
+		tname = tobj
+		//buf.WriteString("type")
+
+	case *types.Var:
+		//if tobj.isField {
+		//	buf.WriteString("field")
+		//} else {
+		//	buf.WriteString("var")
+		//}
+
+	case *types.Func:
+		//buf.WriteString("func ")
+		//writeFuncName(buf, tobj, qf)
+		//if typ != nil {
+		//	WriteSignature(buf, typ.(*Signature), qf)
+		//}
+		return
+
+	case *types.Label:
+		//buf.WriteString("label")
+		typ = nil
+
+	case *types.Builtin:
+		//buf.WriteString("builtin")
+		typ = nil
+
+	case *types.Nil:
+		//buf.WriteString("nil")
+		return
+
+	default:
+		panic(fmt.Sprintf("writeObject(%T)", tobj))
+	}
+
+	//buf.WriteByte(' ')
+
+	// For package-level objects, qualify the name.
+	//if tobj.Pkg() != nil && tobj.Pkg().scope.Lookup(tobj.Name()) == tobj {
+	//	writePackage(buf, tobj.Pkg(), qf)
+	//}
+	//buf.WriteString(tobj.Name())
+
+	if typ == nil {
+		return
+	}
+
+	if tname != nil {
+		// We have a type object: Don't print anything more for
+		// basic types since there's no more information (names
+		// are the same; see also comment in TypeName.IsAlias).
+		//if _, ok := typ.(*types.Basic); ok {
+		//	return
+		//}
+		if tname.IsAlias() {
+			//buf.WriteString(" =")
+		} else {
+			typ = typ.Underlying()
+		}
+	}
+
+	//buf.WriteByte(' ')
+	WriteType(gf, obj, typ, qf)
+}
+
+func WriteType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier) {
+	writeType(gf, obj, typ, qf, make([]types.Type, 0, 8))
+}
+
+func writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier, visited []types.Type) {
+	// Theoretically, this is a quadratic lookup algorithm, but in
+	// practice deeply nested composite types with unnamed component
+	// types are uncommon. This code is likely more efficient than
+	// using a map.
+	//for _, t := range visited {
+	//	if t == typ {
+	//		fmt.Fprintf(buf, "○%T", typ) // cycle to typ
+	//		return
+	//	}
+	//}
+	visited = append(visited, typ)
+
+	switch t := typ.(type) {
+	case nil:
+		//buf.WriteString("<nil>")
+
+	case *types.Basic:
+		//if t.kind == UnsafePointer {
+		//	buf.WriteString("unsafe.")
+		//}
+		//if gcCompatibilityMode {
+		//	// forget the alias names
+		//	switch t.kind {
+		//	case Byte:
+		//		t = Typ[Uint8]
+		//	case Rune:
+		//		t = Typ[Int32]
+		//	}
+		//}
+		//buf.WriteString(t.name)
+
+	case *types.Array:
+		//fmt.Fprintf(buf, "[%d]", t.len)
+		//writeType(buf, t.elem, qf, visited)
+
+	case *types.Slice:
+		//buf.WriteString("[]")
+		//writeType(buf, t.elem, qf, visited)
+
+	case *types.Struct:
+		if obj == nil {
+			panic("obj is nil")
 		}
 
+		gf.Line("class %s:", obj.Name())
+		gf.I()
+		gf.Line(`""""`)
+		gf.Line("Source: %s", gf.Fset.Position(obj.Pos()))
+		gf.Line(`""""`)
+		for i := 0; i < t.NumFields(); i++ {
+			f := t.Field(i)
+			writeType(gf, obj, f.Type(), qf, visited)
+		}
+		gf.Line("pass")
+		gf.D()
+		gf.NL()
+
+		//buf.WriteString("struct{")
+		//for i, f := range t.fields {
+		//	if i > 0 {
+		//		buf.WriteString("; ")
+		//	}
+		//	if !f.embedded {
+		//		buf.WriteString(f.name)
+		//		buf.WriteByte(' ')
+		//	}
+		//	writeType(buf, f.typ, qf, visited)
+		//	if tag := t.Tag(i); tag != "" {
+		//		fmt.Fprintf(buf, " %q", tag)
+		//	}
+		//}
+		//buf.WriteByte('}')
+
+	case *types.Pointer:
+		//buf.WriteByte('*')
+		//writeType(buf, t.base, qf, visited)
+
+	case *types.Tuple:
+		//writeTuple(buf, t, false, qf, visited)
+
+	case *types.Signature:
+		//buf.WriteString("func")
+		//writeSignature(buf, t, qf, visited)
+
+	case *types.Interface:
+		// We write the source-level methods and embedded types rather
+		// than the actual method set since resolved method signatures
+		// may have non-printable cycles if parameters have embedded
+		// interface types that (directly or indirectly) embed the
+		// current interface. For instance, consider the result type
+		// of m:
+		//
+		//     type T interface{
+		//         m() interface{ T }
+		//     }
+		//
+
+		//buf.WriteString("interface{")
+		//empty := true
+		//if gcCompatibilityMode {
+		//	// print flattened interface
+		//	// (useful to compare against gc-generated interfaces)
+		//	for i, m := range t.allMethods {
+		//		if i > 0 {
+		//			buf.WriteString("; ")
+		//		}
+		//		buf.WriteString(m.name)
+		//		writeSignature(buf, m.typ.(*Signature), qf, visited)
+		//		empty = false
+		//	}
+		//} else {
+		//	// print explicit interface methods and embedded types
+		//	for i, m := range t.methods {
+		//		if i > 0 {
+		//			buf.WriteString("; ")
+		//		}
+		//		buf.WriteString(m.name)
+		//		writeSignature(buf, m.typ.(*Signature), qf, visited)
+		//		empty = false
+		//	}
+		//	for i, typ := range t.embeddeds {
+		//		if i > 0 || len(t.methods) > 0 {
+		//			buf.WriteString("; ")
+		//		}
+		//		writeType(buf, typ, qf, visited)
+		//		empty = false
+		//	}
+		//}
+		//if t.allMethods == nil || len(t.methods) > len(t.allMethods) {
+		//	if !empty {
+		//		buf.WriteByte(' ')
+		//	}
+		//	buf.WriteString("/* incomplete */")
+		//}
+		//buf.WriteByte('}')
+
+	case *types.Map:
+		//buf.WriteString("map[")
+		//writeType(buf, t.key, qf, visited)
+		//buf.WriteByte(']')
+		//writeType(buf, t.elem, qf, visited)
+
+	case *types.Chan:
+		//var s string
+		//var parens bool
+		//switch t.dir {
+		//case SendRecv:
+		//	s = "chan "
+		//	// chan (<-chan T) requires parentheses
+		//	if c, _ := t.elem.(*Chan); c != nil && c.dir == RecvOnly {
+		//		parens = true
+		//	}
+		//case SendOnly:
+		//	s = "chan<- "
+		//case RecvOnly:
+		//	s = "<-chan "
+		//default:
+		//	panic("unreachable")
+		//}
+		//buf.WriteString(s)
+		//if parens {
+		//	buf.WriteByte('(')
+		//}
+		//writeType(buf, t.elem, qf, visited)
+		//if parens {
+		//	buf.WriteByte(')')
+		//}
+
+	case *types.Named:
+		s := "<Named w/o object>"
+		if xobj := t.Obj(); xobj != nil {
+			//if xobj.Pkg() != nil {
+			//	writePackage(buf, obj.pkg, qf)
+			//}
+			// TODO(gri): function-local named types should be displayed
+			// differently from named types at package level to avoid
+			// ambiguity.
+			s = xobj.Name()
+			gf.Line("# Source: %s", gf.Fset.Position(xobj.Pos()))
+		}
+		gf.Line(s)
+
+		//s := "<Named w/o object>"
+		//if obj := t.obj; obj != nil {
+		//	if obj.pkg != nil {
+		//		writePackage(buf, obj.pkg, qf)
+		//	}
+		//	// TODO(gri): function-local named types should be displayed
+		//	// differently from named types at package level to avoid
+		//	// ambiguity.
+		//	s = obj.name
+		//}
+		//buf.WriteString(s)
+
+	default:
+		// For externally defined implementations of Type.
+		//buf.WriteString(t.String())
 	}
 }
