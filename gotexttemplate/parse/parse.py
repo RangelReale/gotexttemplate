@@ -643,7 +643,7 @@ class Node:
     CopyXxx methods that return *XxxNode.
     """
     def Position(self) -> Pos: ...
-    def tree(self) -> 'Tree': ...
+    def tree(self) -> Optional['Tree']: ...
     def writeTo(sb: StringsBuilder) -> None: ...
 
 
@@ -702,7 +702,7 @@ class Tree:
     text: str
     funcs: List[Dict[str, Any]]
     lex: Optional[lexer]
-    token: List[item]
+    token: List[Optional[item]]
     peekCount: int
     vars: List[str]
     treeSet: Dict[str, 'Tree']
@@ -719,7 +719,7 @@ class Tree:
         # Parsing only; cleared after parse.
         self.funcs = funcs if funcs is not None else []
         self.lex = None
-        self.token = []  # three-token lookahead for parser.
+        self.token = [None, None, None]  # three-token lookahead for parser.
         self.peekCount = 0
         self.vars = []  # variables defined at the moment.
         self.treeSet = {}
@@ -738,6 +738,65 @@ class Tree:
         else:
             self.token[0] = self.lex.nextItem()
         return self.token[self.peekCount]
+
+    def backup(self) -> None:
+        """backup backs the input stream up one token."""
+        self.peekCount += 1
+
+    def backup2(self, t1: item):
+        """
+        backup2 backs the input stream up two tokens.
+        The zeroth token is already there.
+        """
+        self.token[1] = t1
+        self.peekCount = 2
+
+    def backup3(self, t2: item, t1: item) -> None:  # Reverse order: we're pushing back.
+        self.token[1] = t1
+        self.token[2] = t2
+        self.peekCount = 3
+
+    def peek(self) -> item:
+        """peek returns but does not consume the next token."""
+        if self.peekCount > 0:
+            return self.token[self.peekCount-1]
+        self.peekCount = 1
+        self.token[0] = self.lex.nextItem()
+        return self.token[0]
+
+    def nextNonSpace(self) -> item:
+        while True:
+            token = self.next()
+            if token.typ != itemType.itemSpace:
+                break
+        return token
+
+    def peekNonSpace(self) -> item:
+        """peekNonSpace returns but does not consume the next non-space token."""
+        token = self.nextNonSpace()
+        self.backup()
+        return token
+
+    def ErrorContext(self, n: Node) -> Tuple[str, str]:
+        """
+        ErrorContext returns a textual representation of the location of the node in the input text.
+        The receiver is only used when the node does not have a pointer to the tree inside,
+        which can occur in old code.
+        """
+        pos = n.Position()
+        tree = n.tree()
+        if tree is None:
+            tree = self
+        text = tree.text[:pos]
+        byteNum = text.rfind('\n')
+        if byteNum == -1:
+            byteNum = pos  # On first line.
+        else:
+            byteNum += 1
+            byteNum = pos - byteNum
+        lineNum = 1 + text.count('\n')
+        context = n.String()
+        return '{}:{}:{}'.format(tree.ParseName, lineNum, byteNum), context
 
 
 def Parse(name: str, text: str, leftDelim: str, rightDelim: str, funcs: List[Dict[str, Any]]) -> Dict[str, Tree]:
