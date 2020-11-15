@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/types/typeutil"
 	"io/ioutil"
 	"log"
 	"os"
@@ -191,8 +192,12 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 		return
 
 	case *types.Const:
-		gf.Append("%s: ", obj.Name())
-		p.WriteType(gf, obj, typ, qf)
+		ctype := p.RetType(obj, typ, qf)
+		gf.Append("%s", obj.Name())
+		if ctype != "NodeType" {
+			gf.Append(": ")
+			gf.Append(ctype)
+		}
 		gf.Append(" = %s", tobj.Val().String())
 		p.AppendLineComment(gf, obj)
 		gf.NL()
@@ -227,12 +232,29 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 						continue
 					}
 					gf.StartLine()
-					gf.Append("%s: ", f.Name())
-					//p.writeType(gf, obj, f.Type(), qf, visited)
-					p.WriteType(gf, obj, f.Type(), qf)
+					gf.Append("%s: ", p.PythonIdent(f.Name()))
+					gf.Append(p.RetType(obj, f.Type(), qf))
 					p.AppendLineComment(gf, f)
 					gf.NL()
 				}
+
+				for _, meth := range typeutil.IntuitiveMethodSet(obj.Type(), nil) {
+					//if !meth.Obj().Exported() && !app.Private {
+					//	continue // skip unexported names
+					//}
+
+					//if meth.Kind() == types.MethodExpr {
+					//	scount++
+					//}
+					gf.Line("# %s", p.Fset.Position(meth.Obj().Pos()))
+					gf.Line("def %s(self):", p.PythonIdent(meth.Obj().Name()))
+					gf.I()
+					gf.Line("pass")
+					gf.D()
+
+					//fmt.Printf("\t%s\n", types.SelectionString(meth, qf))
+				}
+
 				if tntyp.NumFields() == 0 {
 					gf.Line("pass")
 				}
@@ -240,12 +262,28 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 				gf.NL()
 				return
 			case *types.Interface:
-				gf.Line("class %s:", obj.Name())
+				//gf.Line("# ** INTERFACE")
+				gf.StartLine()
+				gf.Append("class %s", obj.Name())
+				if tntyp.NumEmbeddeds() > 0 {
+					gf.Append("(")
+					for i := 0; i < tntyp.NumEmbeddeds(); i++ {
+						f := tntyp.EmbeddedType(i)
+						if i > 0 {
+							gf.Append(", ")
+						}
+						gf.Append(p.RetType(nil, f, qf))
+					}
+					gf.Append(")")
+				}
+				gf.Append(":")
+				p.AppendLineComment(gf, obj)
+				gf.NL()
 				gf.I()
 				for i := 0; i < tntyp.NumMethods(); i++ {
 					f := tntyp.Method(i)
 					gf.StartLine()
-					gf.Append("def %s(): ", f.Name())
+					gf.Append("def %s(self): ", p.PythonIdent(f.Name()))
 					//p.WriteType(gf, obj, f.Type(), qf)
 					p.AppendLineComment(gf, f)
 					gf.NL()
@@ -262,7 +300,35 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 			}
 		}
 
-		gf.Append("type")
+		imset := typeutil.IntuitiveMethodSet(obj.Type(), nil)
+		if len(imset) > 0 {
+			gf.Line("class %s:", obj.Name())
+			gf.I()
+			for _, meth := range typeutil.IntuitiveMethodSet(obj.Type(), nil) {
+				//if !meth.Obj().Exported() && !app.Private {
+				//	continue // skip unexported names
+				//}
+
+				//if meth.Kind() == types.MethodExpr {
+				//	scount++
+				//}
+				gf.Line("# %s", p.Fset.Position(meth.Obj().Pos()))
+				gf.Line("def %s(self):", p.PythonIdent(meth.Obj().Name()))
+				gf.I()
+				gf.Line("pass")
+				gf.D()
+
+				//fmt.Printf("\t%s\n", types.SelectionString(meth, qf))
+			}
+			gf.D()
+			gf.NL()
+			return
+		}
+
+		gf.Line("%s = %s", obj.Name(), p.RetType(obj, typ.Underlying(), qf))
+		return
+
+		//gf.Append("type")
 		//buf.WriteString("type")
 
 	case *types.Var:
@@ -281,8 +347,7 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 	case *types.Func:
 		gf.Append("def ")
 		gf.Append(tobj.Name())
-
-		gf.Line(":")
+		gf.Line("():")
 		gf.I()
 		gf.Line("pass")
 		gf.D()
@@ -327,7 +392,7 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 	//}
 
 	//buf.WriteString(tobj.Name())
-	gf.Append(obj.Name())
+	gf.Append(p.PythonIdent(obj.Name()))
 
 	if typ == nil {
 		return
@@ -351,15 +416,17 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 	//buf.WriteByte(' ')
 	gf.Append(" ")
 
-	p.WriteType(gf, obj, typ, qf)
+	gf.Append(p.RetType(obj, typ, qf))
 	gf.NL()
 }
 
-func (p *Processor) WriteType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier) {
-	p.writeType(gf, obj, typ, qf, make([]types.Type, 0, 8))
+func (p *Processor) RetType(obj types.Object, typ types.Type, qf types.Qualifier) string {
+	return p.retType(obj, typ, qf, make([]types.Type, 0, 8))
 }
 
-func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf types.Qualifier, visited []types.Type) {
+func (p *Processor) retType(obj types.Object, typ types.Type, qf types.Qualifier, visited []types.Type) string {
+	var tb strings.Builder
+
 	// Theoretically, this is a quadratic lookup algorithm, but in
 	// practice deeply nested composite types with unnamed component
 	// types are uncommon. This code is likely more efficient than
@@ -377,10 +444,7 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 		//buf.WriteString("<nil>")
 
 	case *types.Basic:
-		if t.Kind() == types.UnsafePointer {
-			//buf.WriteString("unsafe.")
-		}
-		gf.Append(t.Name())
+		tb.WriteString(p.PythonType(t))
 
 		//if t.kind == UnsafePointer {
 		//	buf.WriteString("unsafe.")
@@ -398,13 +462,13 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 
 	case *types.Array:
 		if obj != nil {
-			gf.Append("Optional[")
+			tb.WriteString("Optional[")
 		}
-		gf.Append("List[")
-		p.writeType(gf, nil, t.Elem(), qf, visited)
-		gf.Append("]")
+		tb.WriteString("List[")
+		tb.WriteString(p.retType(nil, t.Elem(), qf, visited))
+		tb.WriteString("]")
 		if obj != nil {
-			gf.Append("]")
+			tb.WriteString("]")
 		}
 
 		//fmt.Fprintf(buf, "[%d]", t.len)
@@ -412,13 +476,13 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 
 	case *types.Slice:
 		if obj != nil {
-			gf.Append("Optional[")
+			tb.WriteString("Optional[")
 		}
-		gf.Append("List[")
-		p.writeType(gf, nil, t.Elem(), qf, visited)
-		gf.Append("]")
+		tb.WriteString("List[")
+		tb.WriteString(p.retType(nil, t.Elem(), qf, visited))
+		tb.WriteString("]")
 		if obj != nil {
-			gf.Append("]")
+			tb.WriteString("]")
 		}
 
 		//buf.WriteString("[]")
@@ -429,7 +493,7 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 			panic("obj is nil")
 		}
 
-		gf.Line("# STRUCT NOT OBJECT: %s:", obj.Name())
+		fmt.Fprintf(&tb, "# STRUCT NOT OBJECT: %s:", obj.Name())
 
 		//buf.WriteString("struct{")
 		//for i, f := range t.fields {
@@ -448,9 +512,9 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 		//buf.WriteByte('}')
 
 	case *types.Pointer:
-		gf.Append("Optional[")
-		p.writeType(gf, nil, t.Elem(), qf, visited)
-		gf.Append("]")
+		tb.WriteString("Optional[")
+		tb.WriteString(p.retType(nil, t.Elem(), qf, visited))
+		tb.WriteString("]")
 
 		//buf.WriteByte('*')
 		//writeType(buf, t.base, qf, visited)
@@ -463,7 +527,7 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 		//writeSignature(buf, t, qf, visited)
 
 	case *types.Interface:
-		gf.Append("Any")
+		tb.WriteString("Any")
 
 		// We write the source-level methods and embedded types rather
 		// than the actual method set since resolved method signatures
@@ -518,15 +582,15 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 
 	case *types.Map:
 		if obj != nil {
-			gf.Append("Optional[")
+			tb.WriteString("Optional[")
 		}
-		gf.Append("Dict[")
-		p.writeType(gf, nil, t.Key(), qf, visited)
-		gf.Append(", ")
-		p.writeType(gf, nil, t.Elem(), qf, visited)
-		gf.Append("]")
+		tb.WriteString("Dict[")
+		tb.WriteString(p.retType(nil, t.Key(), qf, visited))
+		tb.WriteString(", ")
+		tb.WriteString(p.retType(nil, t.Elem(), qf, visited))
+		tb.WriteString("]")
 		if obj != nil {
-			gf.Append("]")
+			tb.WriteString("]")
 		}
 
 		//buf.WriteString("map[")
@@ -535,7 +599,7 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 		//writeType(buf, t.elem, qf, visited)
 
 	case *types.Chan:
-		gf.Append("UNSUPPORTED_CHAN")
+		tb.WriteString("queue.LifoQueue")
 
 		//var s string
 		//var parens bool
@@ -573,7 +637,7 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 			// ambiguity.
 			s = xobj.Name()
 		}
-		gf.Append(s)
+		tb.WriteString(s)
 
 		//s := "<Named w/o object>"
 		//if obj := t.obj; obj != nil {
@@ -591,6 +655,8 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 		// For externally defined implementations of Type.
 		//buf.WriteString(t.String())
 	}
+
+	return tb.String()
 }
 
 type Poser interface {
@@ -650,4 +716,35 @@ func (p *Processor) AstOf(typeObj types.Object) (typeAst ast.Node) {
 		return true
 	})
 	return
+}
+
+func (p *Processor) PythonIdent(ident string) string {
+	if ident == "True" || ident == "False" {
+		return fmt.Sprintf("%s_", ident)
+	}
+	return ident
+}
+
+func (p *Processor) PythonType(ptype *types.Basic) string {
+	switch ptype.Kind() {
+	case types.UntypedBool, types.Bool:
+		return "bool"
+	case types.UntypedInt, types.Int, types.Int8, types.Int16, types.Int32, types.Int64, types.Uint, types.Uint8,
+		types.Uint16, types.Uint32, types.Uint64:
+		return "int"
+	case types.Uintptr:
+		return "Optional[int]"
+	case types.UntypedFloat, types.Float32, types.Float64:
+		return "float"
+	case types.UntypedComplex, types.Complex64, types.Complex128:
+		return "complex"
+	case types.UntypedString, types.UntypedRune, types.String:
+		return "str"
+	case types.UntypedNil:
+		return "None"
+	case types.Invalid, types.UnsafePointer:
+		return "Optional[Any]"
+	}
+
+	return ptype.Name()
 }
