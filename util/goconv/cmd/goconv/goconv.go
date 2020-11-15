@@ -387,9 +387,9 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 	//buf.WriteByte(' ')
 
 	// For package-level objects, qualify the name.
-	//if tobj.Pkg() != nil && tobj.Pkg().scope.Lookup(tobj.Name()) == tobj {
-	//	writePackage(buf, tobj.Pkg(), qf)
-	//}
+	if obj.Pkg() != nil && obj.Pkg().Scope().Lookup(obj.Name()) == obj {
+		p.writePackage(gf, obj.Pkg(), qf)
+	}
 
 	//buf.WriteString(tobj.Name())
 	gf.Append(p.PythonIdent(obj.Name()))
@@ -418,6 +418,22 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 
 	gf.Append(p.RetType(obj, typ, qf))
 	gf.NL()
+}
+
+func (p *Processor) writePackage(gf *GenFile, pkg *types.Package, qf types.Qualifier) {
+	if pkg == nil {
+		return
+	}
+	var s string
+	if qf != nil {
+		s = qf(pkg)
+	} else {
+		s = pkg.Path()
+	}
+	if s != "" {
+		gf.Append(s)
+		gf.Append(".")
+	}
 }
 
 func (p *Processor) RetType(obj types.Object, typ types.Type, qf types.Qualifier) string {
