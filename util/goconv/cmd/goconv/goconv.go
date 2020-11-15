@@ -191,11 +191,77 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 		return
 
 	case *types.Const:
-		gf.Append("const")
+		gf.Append("%s: ", obj.Name())
+		p.WriteType(gf, obj, typ, qf)
+		gf.Append(" = %s", tobj.Val().String())
+		p.AppendLineComment(gf, obj)
+		gf.NL()
+		return
+
 		//buf.WriteString("const")
 
 	case *types.TypeName:
 		tname = tobj
+
+		if !tname.IsAlias() {
+			switch tntyp := typ.Underlying().(type) {
+			case *types.Struct:
+				baseclasses := []string{}
+				for i := 0; i < tntyp.NumFields(); i++ {
+					f := tntyp.Field(i)
+					if f.Embedded() {
+						baseclasses = append(baseclasses, f.Name())
+					}
+				}
+
+				base := ""
+				if len(baseclasses) > 0 {
+					base = fmt.Sprintf("(%s)", strings.Join(baseclasses, ", "))
+				}
+
+				gf.Line("class %s%s:", obj.Name(), base)
+				gf.I()
+				for i := 0; i < tntyp.NumFields(); i++ {
+					f := tntyp.Field(i)
+					if f.Embedded() {
+						continue
+					}
+					gf.StartLine()
+					gf.Append("%s: ", f.Name())
+					//p.writeType(gf, obj, f.Type(), qf, visited)
+					p.WriteType(gf, obj, f.Type(), qf)
+					p.AppendLineComment(gf, f)
+					gf.NL()
+				}
+				if tntyp.NumFields() == 0 {
+					gf.Line("pass")
+				}
+				gf.D()
+				gf.NL()
+				return
+			case *types.Interface:
+				gf.Line("class %s:", obj.Name())
+				gf.I()
+				for i := 0; i < tntyp.NumMethods(); i++ {
+					f := tntyp.Method(i)
+					gf.StartLine()
+					gf.Append("def %s(): ", f.Name())
+					//p.WriteType(gf, obj, f.Type(), qf)
+					p.AppendLineComment(gf, f)
+					gf.NL()
+					gf.I()
+					gf.Line("pass")
+					gf.D()
+				}
+				if tntyp.NumMethods() == 0 {
+					gf.Line("pass")
+				}
+				gf.D()
+				gf.NL()
+				return
+			}
+		}
+
 		gf.Append("type")
 		//buf.WriteString("type")
 
@@ -259,7 +325,9 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 	//if tobj.Pkg() != nil && tobj.Pkg().scope.Lookup(tobj.Name()) == tobj {
 	//	writePackage(buf, tobj.Pkg(), qf)
 	//}
+
 	//buf.WriteString(tobj.Name())
+	gf.Append(obj.Name())
 
 	if typ == nil {
 		return
@@ -274,12 +342,15 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 		//}
 		if tname.IsAlias() {
 			//buf.WriteString(" =")
+			gf.Append(" = ")
 		} else {
 			typ = typ.Underlying()
 		}
 	}
 
 	//buf.WriteByte(' ')
+	gf.Append(" ")
+
 	p.WriteType(gf, obj, typ, qf)
 	gf.NL()
 }
@@ -358,31 +429,7 @@ func (p *Processor) writeType(gf *GenFile, obj types.Object, typ types.Type, qf 
 			panic("obj is nil")
 		}
 
-		gf.Line("class %s:", obj.Name())
-		gf.I()
-		gf.Line(`""""`)
-		gf.Line("Source: %s", p.Fset.Position(obj.Pos()))
-		gf.Line(`""""`)
-		for i := 0; i < t.NumFields(); i++ {
-			f := t.Field(i)
-			fast := p.AstOf(f)
-			gf.StartLine()
-			gf.Append("%s: ", f.Name())
-			p.writeType(gf, obj, f.Type(), qf, visited)
-			if fast != nil {
-				switch xfast := fast.(type) {
-				case *ast.Field:
-					if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
-						gf.Append("  # %s", strings.TrimLeft(xfast.Comment.List[0].Text, "/ "))
-					}
-				}
-			}
-			gf.NL()
-		}
-		if t.NumFields() == 0 {
-			gf.Line("pass")
-		}
-		gf.D()
+		gf.Line("# STRUCT NOT OBJECT: %s:", obj.Name())
 
 		//buf.WriteString("struct{")
 		//for i, f := range t.fields {
@@ -561,8 +608,31 @@ func (p *Processor) FileOf(poser Poser) *ast.File {
 	return nil
 }
 
-func (p *Processor) AstOf(typeFunc types.Object) (typeAst ast.Node) {
-	ast.Inspect(p.FileOf(typeFunc), func(node ast.Node) bool {
+func (p *Processor) AppendLineComment(gf *GenFile, typeObj types.Object) {
+	fast := p.AstOf(typeObj)
+	if fast != nil {
+		switch xfast := fast.(type) {
+		case *ast.Field:
+			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
+				gf.Append("  # %s", strings.TrimSpace(xfast.Comment.Text()))
+				//gf.Append("  # %s", strings.TrimLeft(xfast.Comment.List[0].Text, "/ "))
+			}
+		case *ast.ValueSpec:
+			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
+				gf.Append("  # %s", strings.TrimSpace(xfast.Comment.Text()))
+				//gf.Append("  # %s", strings.TrimLeft(xfast.Comment.List[0].Text, "/ "))
+			}
+		case *ast.TypeSpec:
+			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
+				gf.Append("  # %s", strings.TrimSpace(xfast.Comment.Text()))
+				//gf.Append("  # %s", strings.TrimLeft(xfast.Comment.List[0].Text, "/ "))
+			}
+		}
+	}
+}
+
+func (p *Processor) AstOf(typeObj types.Object) (typeAst ast.Node) {
+	ast.Inspect(p.FileOf(typeObj), func(node ast.Node) bool {
 		if node == nil {
 			return true
 		}
@@ -571,8 +641,8 @@ func (p *Processor) AstOf(typeFunc types.Object) (typeAst ast.Node) {
 		case *ast.File:
 			// ignore
 		default:
-			if node.Pos() == typeFunc.Pos() {
-				//fmt.Printf("@@ OK! %d-%d || %d \n", node.Pos(), node.End(), typeFunc.Pos())
+			if node.Pos() == typeObj.Pos() {
+				//fmt.Printf("@@ OK! %d-%d || %d \n", node.Pos(), node.End(), typeObj.Pos())
 				typeAst = node
 				return false
 			}
