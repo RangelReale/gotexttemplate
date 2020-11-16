@@ -43,28 +43,48 @@ func (c *Conv) initialize() error {
 }
 
 func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
-	gf := NewGenFile()
+	if pkg.Types != nil {
+		qual := types.RelativeTo(pkg.Types)
 
-	gf.Line("# package: %s", pkg.PkgPath)
+		gf := NewGenFile()
 
-	c.extract(pkg.Types.Scope())
+		gf.Line("# type: ignore")
+		gf.Line("# package: %s", pkg.PkgPath)
+		gf.NL()
 
-	ct, err := closed.InPackage(c.FileSet, pkg.Syntax, pkg.Types)
-	if err != nil {
-		panic(err)
-	}
-	for _, v := range ct {
-		switch v := v.(type) {
-		case *closed.Enum:
-			err = c.outputEnum(gf, v)
-			if err != nil {
-				return err
+		_, _, _, allTypes := c.extract(pkg.Types.Scope())
+		structs := c.findStructs(allTypes)
+		interfaces := c.findInterfaces(allTypes)
+
+		ct, err := closed.InPackage(c.FileSet, pkg.Syntax, pkg.Types)
+		if err != nil {
+			panic(err)
+		}
+
+		// Enums
+		for _, v := range ct {
+			switch v := v.(type) {
+			case *closed.Enum:
+				c.outputEnum(gf, v)
+				gf.NL()
 			}
+		}
+
+		// Interfaces
+		for _, s := range interfaces {
+			c.outputInterface(gf, s, qual)
 			gf.NL()
 		}
-	}
 
-	return gf.Output(out)
+		// Structs
+		for _, s := range structs {
+			c.outputStruct(gf, s, qual)
+			gf.NL()
+		}
+
+		return gf.Output(out)
+	}
+	return nil
 }
 
 func (c *Conv) OutputFile(pkg *packages.Package, filename string) error {
@@ -105,6 +125,30 @@ func (c *Conv) extract(s *types.Scope) (consts []*types.Const, funcs []*types.Fu
 		default:
 			fmt.Printf("Unknown type: %T\n", o)
 			//discard
+		}
+	}
+	return
+}
+
+func (c *Conv) findInterfaces(ts []*types.TypeName) (interfaces []*types.TypeName) {
+	for _, t := range ts {
+		if !t.IsAlias() {
+			switch t.Type().Underlying().(type) {
+			case *types.Interface:
+				interfaces = append(interfaces, t)
+			}
+		}
+	}
+	return
+}
+
+func (c *Conv) findStructs(ts []*types.TypeName) (structs []*types.TypeName) {
+	for _, t := range ts {
+		if !t.IsAlias() {
+			switch t.Type().Underlying().(type) {
+			case *types.Struct:
+				structs = append(structs, t)
+			}
 		}
 	}
 	return

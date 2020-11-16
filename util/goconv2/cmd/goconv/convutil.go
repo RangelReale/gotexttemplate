@@ -8,6 +8,27 @@ import (
 	"strings"
 )
 
+func (c *Conv) baseTypes(typ types.Type) (basetypes []types.Type) {
+	switch t := typ.(type) {
+	case *types.Named:
+		return c.baseTypes(t.Underlying())
+	case *types.Struct:
+		for i := 0; i < t.NumFields(); i++ {
+			f := t.Field(i)
+			if f.Embedded() {
+				//basetypes = append(basetypes, f)
+				basetypes = append(basetypes, f.Type())
+			}
+		}
+	case *types.Interface:
+		for i := 0; i < t.NumEmbeddeds(); i++ {
+			f := t.EmbeddedType(i)
+			basetypes = append(basetypes, f)
+		}
+	}
+	return
+}
+
 type Poser interface {
 	Pos() token.Pos
 }

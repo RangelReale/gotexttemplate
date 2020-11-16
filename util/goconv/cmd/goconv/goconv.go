@@ -373,7 +373,7 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 		//buf.WriteString("func ")
 		//writeFuncName(buf, tobj, qf)
 		//if typ != nil {
-		//	WriteSignature(buf, typ.(*Signature), qf)
+		//	types.WriteSignature(buf, typ.(*Signature), qf)
 		//}
 		return
 
