@@ -41,6 +41,21 @@ func (c *Conv) outputConst(gf *GenFile, s *types.Const, qf types.Qualifier) {
 	gf.NL()
 }
 
+func (c *Conv) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
+	gf.Line("# %s", c.FileSet.Position(s.Pos()))
+
+	typ := s.Type()
+
+	gf.StartLine()
+	gf.Append("%s", s.Name())
+	gf.Append(" = ")
+	if !s.IsAlias() {
+		typ = typ.Underlying()
+	}
+	gf.Append(c.typeName(typ, qf, false))
+	gf.NL()
+}
+
 func (c *Conv) outputInterface(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	gf.Line("# %s", c.FileSet.Position(s.Pos()))
 
@@ -71,18 +86,6 @@ func (c *Conv) outputInterface(gf *GenFile, s *types.TypeName, qf types.Qualifie
 		f := itf.Method(i)
 
 		c.outputFunc(gf, f, qf, true)
-
-		//gf.Line("# %s", c.FileSet.Position(f.Pos()))
-		//gf.StartLine()
-		//gf.Append("def %s", c.pythonIdent(f.Name()))
-		//c.outputSignature(gf, f.Type().(*types.Signature), qf, true)
-		//gf.Append(":")
-		//gf.Append(c.ReturnLineComment(f))
-		//gf.NL()
-		//
-		//gf.I()
-		//gf.Line("pass")
-		//gf.D()
 
 		fieldAmount++
 	}
@@ -154,25 +157,6 @@ func (c *Conv) outputStruct(gf *GenFile, s *types.TypeName, qf types.Qualifier) 
 			panic(fmt.Sprintf("unsupported selector(%T)", meth))
 		}
 
-		//gf.Line("# %s", c.FileSet.Position(meth.Obj().Pos()))
-		//gf.StartLine()
-		//gf.Append("def %s", c.pythonIdent(meth.Obj().Name()))
-		//switch meth.Kind() {
-		//case types.MethodVal:
-		//	c.outputSignature(gf, meth.Obj().(*types.Func).Type().(*types.Signature), qf, true)
-		//case types.MethodExpr:
-		//	c.outputSignature(gf, meth.Obj().(*types.Func).Type().(*types.Signature), qf, true)
-		//default:
-		//	panic(fmt.Sprintf("unsupported selector(%T)", meth))
-		//}
-		//gf.Append(":")
-		//gf.Append(c.ReturnLineComment(meth.Obj()))
-		//
-		//gf.NL()
-		//gf.I()
-		//gf.Line("pass")
-		//gf.D()
-
 		fieldAmount++
 	}
 
@@ -194,56 +178,90 @@ func (c *Conv) outputFuncSig(gf *GenFile, s *types.Func, qf types.Qualifier, sel
 	gf.Line("# %s", c.FileSet.Position(s.Pos()))
 	gf.StartLine()
 	gf.Append("def %s", c.pythonIdent(s.Name()))
-	c.outputSignature(gf, s.Type().(*types.Signature), qf, self)
+	gf.Append(c.returnSignature(s.Type().(*types.Signature), qf, self))
 	gf.Append(":")
 	gf.Append(c.ReturnLineComment(s))
 	gf.NL()
 }
 
-func (c *Conv) outputSignature(gf *GenFile, sig *types.Signature, qf types.Qualifier, self bool) {
-	gf.Append("(")
+func (c *Conv) returnSignature(sig *types.Signature, qf types.Qualifier, self bool) string {
+	var sb strings.Builder
+
+	sb.WriteString("(")
 	if self {
-		gf.Append("self")
+		sb.WriteString("self")
 		if sig.Params() != nil && sig.Params().Len() > 0 {
-			gf.Append(", ")
+			sb.WriteString(", ")
 		}
 	}
 
-	c.outputTuple(gf, sig.Params(), sig.Variadic(), qf)
-	gf.Append(")")
+	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf))
+	sb.WriteString(")")
 
-	gf.Append(" -> ")
+	sb.WriteString(" -> ")
 
 	n := sig.Results().Len()
 	if n == 0 {
-		gf.Append("None")
+		sb.WriteString("None")
 		// no result
-		return
+		return sb.String()
 	}
 
 	// multiple or named result(s)
 	if n > 1 {
-		gf.Append("Tuple[")
+		sb.WriteString("Tuple[")
 	}
-	c.outputTuple(gf, sig.Results(), false, qf)
+	sb.WriteString(c.returnTuple(sig.Results(), false, qf))
 	if n > 1 {
-		gf.Append("]")
+		sb.WriteString("]")
 	}
+	return sb.String()
 }
 
-func (c *Conv) outputTuple(gf *GenFile, t *types.Tuple, variadic bool, qf types.Qualifier) {
+func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) string {
+	var sb strings.Builder
+
+	sb.WriteString("Callable[[")
+
+	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf))
+	sb.WriteString("], ")
+
+	n := sig.Results().Len()
+	if n == 0 {
+		sb.WriteString("None")
+		// no result
+		return sb.String()
+	} else {
+		// multiple or named result(s)
+		if n > 1 {
+			sb.WriteString("Tuple[")
+		}
+		sb.WriteString(c.returnTuple(sig.Results(), false, qf))
+		if n > 1 {
+			sb.WriteString("]")
+		}
+	}
+
+	sb.WriteString("]")
+
+	return sb.String()
+}
+
+func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier) string {
+	var sb strings.Builder
+
 	if t != nil {
 		for i := 0; i < t.Len(); i++ {
 			v := t.At(i)
 			if i > 0 {
-				gf.Append(", ")
+				sb.WriteString(", ")
 			}
 			if _, ok := v.Type().(*types.Slice); ok {
-				gf.Append("*")
+				sb.WriteString("*")
 			}
 			if v.Name() != "" {
-				gf.Append(v.Name())
-				gf.Append(": ")
+				sb.WriteString(v.Name())
+				sb.WriteString(": ")
 			}
 			typ := v.Type()
 			if variadic && i == t.Len()-1 {
@@ -262,9 +280,10 @@ func (c *Conv) outputTuple(gf *GenFile, t *types.Tuple, variadic bool, qf types.
 					//continue
 				}
 			}
-			gf.Append(c.typeName(typ, qf, false))
+			sb.WriteString(c.typeName(typ, qf, false))
 		}
 	}
+	return sb.String()
 }
 
 func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool) string {
@@ -304,7 +323,7 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool) strin
 	case *types.Tuple:
 		panic("TODO")
 	case *types.Signature:
-		panic("TODO")
+		tb.WriteString(c.returnSignatureType(t, qf))
 	case *types.Interface:
 		tb.WriteString("Any")
 	case *types.Map:

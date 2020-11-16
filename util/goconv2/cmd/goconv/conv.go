@@ -53,6 +53,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		gf.NL()
 
 		consts, funcs, _, allTypes := c.extract(pkg.Types.Scope())
+		typs := c.findTypes(allTypes)
 		structs := c.findStructs(allTypes)
 		interfaces := c.findInterfaces(allTypes)
 
@@ -84,6 +85,19 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 				continue
 			}
 			c.outputConst(gf, s, qual)
+			gf.NL()
+		}
+
+		// Types
+		gf.Line("#")
+		gf.Line("# TYPES")
+		gf.Line("#")
+		gf.NL()
+		for _, s := range typs {
+			if c.typeIsEnum(s, ct) {
+				continue
+			}
+			c.outputTypes(gf, s, qual)
 			gf.NL()
 		}
 
@@ -159,6 +173,22 @@ func (c *Conv) extract(s *types.Scope) (consts []*types.Const, funcs []*types.Fu
 		default:
 			fmt.Printf("Unknown type: %T\n", o)
 			//discard
+		}
+	}
+	return
+}
+
+func (c *Conv) findTypes(ts []*types.TypeName) (typs []*types.TypeName) {
+	for _, t := range ts {
+		if !t.IsAlias() {
+			switch t.Type().Underlying().(type) {
+			case *types.Struct:
+			case *types.Interface:
+			default:
+				typs = append(typs, t)
+			}
+		} else {
+			typs = append(typs, t)
 		}
 	}
 	return
