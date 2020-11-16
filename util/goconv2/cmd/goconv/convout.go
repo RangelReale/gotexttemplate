@@ -56,14 +56,35 @@ func (c *Conv) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	gf.NL()
 }
 
-func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
+func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, closedTypes []closed.Type) {
 	gf.Line("# %s", c.FileSet.Position(s.Pos()))
 
 	basetypes := c.baseTypes(s.Type())
 	baseclasses := []string{}
 
+	for _, v := range closedTypes {
+		switch v := v.(type) {
+		case *closed.Interface:
+EndLoop:
+			for _, cm := range v.Members {
+				for _, cmt := range cm.TypeName {
+					if s == cmt {
+						for _, ct := range v.Types() {
+							baseclasses = append(baseclasses, c.typeName(ct.Type(), qf, false, true))
+						}
+						break EndLoop
+					}
+				}
+			}
+		}
+	}
+
+
 	for _, bt := range basetypes {
-		baseclasses = append(baseclasses, c.typeName(bt, qf, false, true))
+		btn := c.typeName(bt, qf, false, true)
+		if s.Pkg().Path().
+
+		baseclasses = append(baseclasses, btn)
 	}
 
 	base := ""

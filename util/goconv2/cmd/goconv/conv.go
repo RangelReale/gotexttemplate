@@ -140,7 +140,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		gf.NL()
 		for _, s := range interfaces {
 			gf.NL()
-			c.outputClass(gf, s, qual)
+			c.outputClass(gf, s, qual, ct)
 			gf.NL()
 		}
 
@@ -152,7 +152,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		gf.NL()
 		for _, s := range c.sortStructs(pkg, structs) {
 			gf.NL()
-			c.outputClass(gf, s, qual)
+			c.outputClass(gf, s, qual, ct)
 			gf.NL()
 		}
 
