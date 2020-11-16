@@ -52,7 +52,7 @@ func (c *Conv) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	if !s.IsAlias() {
 		typ = typ.Underlying()
 	}
-	gf.Append(c.typeName(typ, qf, false))
+	gf.Append(c.typeName(typ, qf, false, false))
 	gf.NL()
 }
 
@@ -63,7 +63,7 @@ func (c *Conv) outputInterface(gf *GenFile, s *types.TypeName, qf types.Qualifie
 	baseclasses := []string{}
 
 	for _, bt := range basetypes {
-		baseclasses = append(baseclasses, c.typeName(bt, qf, false))
+		baseclasses = append(baseclasses, c.typeName(bt, qf, false, true))
 	}
 
 	base := ""
@@ -104,7 +104,7 @@ func (c *Conv) outputStruct(gf *GenFile, s *types.TypeName, qf types.Qualifier) 
 	baseclasses := []string{}
 
 	for _, bt := range basetypes {
-		baseclasses = append(baseclasses, c.typeName(bt, qf, false))
+		baseclasses = append(baseclasses, c.typeName(bt, qf, false, true))
 	}
 
 	base := ""
@@ -130,7 +130,7 @@ func (c *Conv) outputStruct(gf *GenFile, s *types.TypeName, qf types.Qualifier) 
 		}
 		gf.StartLine()
 		gf.Append("%s: ", c.pythonIdent(f.Name()))
-		gf.Append(c.typeName(f.Type(), qf, true))
+		gf.Append(c.typeName(f.Type(), qf, true, false))
 		gf.Append(c.ReturnLineComment(f))
 		gf.NL()
 
@@ -280,13 +280,13 @@ func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier) st
 					//continue
 				}
 			}
-			sb.WriteString(c.typeName(typ, qf, false))
+			sb.WriteString(c.typeName(typ, qf, false, false))
 		}
 	}
 	return sb.String()
 }
 
-func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool) string {
+func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeDecl bool) string {
 	var tb strings.Builder
 
 	switch t := typ.(type) {
@@ -299,7 +299,7 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool) strin
 			tb.WriteString("Optional[")
 		}
 		tb.WriteString("List[")
-		tb.WriteString(c.typeName(t.Elem(), qf, false))
+		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
 		tb.WriteString("]")
 		if topLevel {
 			tb.WriteString("]")
@@ -309,7 +309,7 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool) strin
 			tb.WriteString("Optional[")
 		}
 		tb.WriteString("List[")
-		tb.WriteString(c.typeName(t.Elem(), qf, false))
+		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
 		tb.WriteString("]")
 		if topLevel {
 			tb.WriteString("]")
@@ -317,9 +317,13 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool) strin
 	case *types.Struct:
 		panic("TODO")
 	case *types.Pointer:
-		tb.WriteString("Optional[")
-		tb.WriteString(c.typeName(t.Elem(), qf, false))
-		tb.WriteString("]")
+		if !typeDecl {
+			tb.WriteString("Optional[")
+		}
+		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
+		if !typeDecl {
+			tb.WriteString("]")
+		}
 	case *types.Tuple:
 		panic("TODO")
 	case *types.Signature:
@@ -331,9 +335,9 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool) strin
 			tb.WriteString("Optional[")
 		}
 		tb.WriteString("Dict[")
-		tb.WriteString(c.typeName(t.Key(), qf, false))
+		tb.WriteString(c.typeName(t.Key(), qf, false, typeDecl))
 		tb.WriteString(", ")
-		tb.WriteString(c.typeName(t.Elem(), qf, false))
+		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
 		tb.WriteString("]")
 		if topLevel {
 			tb.WriteString("]")
@@ -370,7 +374,7 @@ func (c *Conv) returnPackage(pkg *types.Package, qf types.Qualifier) string {
 		s = pkg.Path()
 	}
 	if s != "" {
-		return fmt.Sprintf("%s.", s)
+		return fmt.Sprintf("%s.", strings.Replace(s, "/", "_", -1))
 	}
 	return ""
 }
