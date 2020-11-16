@@ -195,7 +195,7 @@ func (c *Conv) returnSignature(sig *types.Signature, qf types.Qualifier, self bo
 		}
 	}
 
-	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf))
+	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf, true))
 	sb.WriteString(")")
 
 	sb.WriteString(" -> ")
@@ -211,7 +211,7 @@ func (c *Conv) returnSignature(sig *types.Signature, qf types.Qualifier, self bo
 	if n > 1 {
 		sb.WriteString("Tuple[")
 	}
-	sb.WriteString(c.returnTuple(sig.Results(), false, qf))
+	sb.WriteString(c.returnTuple(sig.Results(), false, qf, false))
 	if n > 1 {
 		sb.WriteString("]")
 	}
@@ -223,7 +223,7 @@ func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) str
 
 	sb.WriteString("Callable[[")
 
-	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf))
+	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf, false))
 	sb.WriteString("], ")
 
 	n := sig.Results().Len()
@@ -236,7 +236,7 @@ func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) str
 		if n > 1 {
 			sb.WriteString("Tuple[")
 		}
-		sb.WriteString(c.returnTuple(sig.Results(), false, qf))
+		sb.WriteString(c.returnTuple(sig.Results(), false, qf, false))
 		if n > 1 {
 			sb.WriteString("]")
 		}
@@ -247,7 +247,7 @@ func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) str
 	return sb.String()
 }
 
-func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier) string {
+func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier, named bool) string {
 	var sb strings.Builder
 
 	if t != nil {
@@ -259,9 +259,11 @@ func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier) st
 			if _, ok := v.Type().(*types.Slice); ok {
 				sb.WriteString("*")
 			}
-			if v.Name() != "" {
-				sb.WriteString(v.Name())
-				sb.WriteString(": ")
+			if named {
+				if v.Name() != "" {
+					sb.WriteString(v.Name())
+					sb.WriteString(": ")
+				}
 			}
 			typ := v.Type()
 			if variadic && i == t.Len()-1 {
@@ -346,16 +348,24 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeD
 		tb.WriteString("queue.LifoQueue")
 	case *types.Named:
 		s := "<Named w/o object>"
+		pkg := ""
 		if xobj := t.Obj(); xobj != nil {
 			if xobj.Pkg() != nil {
-				tb.WriteString(c.returnPackage(xobj.Pkg(), qf))
+				pkg = c.returnPackage(xobj.Pkg(), qf)
+				tb.WriteString(pkg)
 			}
 			//TODO(gri): function-local named types should be displayed
 			//differently from named types at package level to avoid
 			//ambiguity.
 			s = xobj.Name()
 		}
+		if pkg == "" && !typeDecl {
+			tb.WriteString("'")
+		}
 		tb.WriteString(s)
+		if pkg == "" && !typeDecl {
+			tb.WriteString("'")
+		}
 	default:
 		panic("TODO")
 	}
