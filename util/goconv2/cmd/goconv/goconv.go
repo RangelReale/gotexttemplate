@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 )
 
 func main() {
@@ -25,7 +24,7 @@ func main() {
 	}
 
 	for _, pv := range conv.Packages {
-		filename := filepath.Join(outputPath, fmt.Sprintf("%s.py", strings.Replace(pv.PkgPath, "/", ".", -1)))
+		filename := filepath.Join(outputPath, conv.Filename(pv))
 		err = conv.OutputFile(pv, filename)
 		if err != nil {
 			panic(err)

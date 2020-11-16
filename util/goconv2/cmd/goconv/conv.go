@@ -9,6 +9,7 @@ import (
 	"golang.org/x/tools/go/packages"
 	"io"
 	"os"
+	"strings"
 )
 
 type Conv struct {
@@ -42,6 +43,14 @@ func (c *Conv) initialize() error {
 	return nil
 }
 
+func (c *Conv) BaseFilename(pkg *packages.Package) string {
+	return fmt.Sprintf("%s", strings.Replace(pkg.PkgPath, "/", "_", -1))
+}
+
+func (c *Conv) Filename(pkg *packages.Package) string {
+	return fmt.Sprintf("%s.py", c.BaseFilename(pkg))
+}
+
 func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 	if pkg.Types != nil {
 		qual := types.RelativeTo(pkg.Types)
@@ -50,6 +59,23 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 
 		gf.Line("# type: ignore")
 		gf.Line("# package: %s", pkg.PkgPath)
+		gf.NL()
+
+		gf.Line("from enum import Enum")
+		gf.Line("from typing import Callable, Optional, List, Dict, Any, Tuple")
+		gf.Line("import queue")
+
+		for _, pi := range pkg.Imports {
+			for _, pc := range c.Packages {
+				if pc == pkg {
+					continue
+				}
+				if pi == pc {
+					gf.Line("from . import %s", c.BaseFilename(pi))
+				}
+			}
+		}
+
 		gf.NL()
 
 		consts, funcs, _, allTypes := c.extract(pkg.Types.Scope())
