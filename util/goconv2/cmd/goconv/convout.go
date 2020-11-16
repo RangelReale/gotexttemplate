@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/jimmyfrasche/closed"
 	"go/types"
-	"golang.org/x/tools/go/types/typeutil"
 	"strings"
 )
 
@@ -56,7 +55,7 @@ func (c *Conv) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	gf.NL()
 }
 
-func (c *Conv) outputInterface(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
+func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	gf.Line("# %s", c.FileSet.Position(s.Pos()))
 
 	basetypes := c.baseTypes(s.Type())
@@ -78,86 +77,58 @@ func (c *Conv) outputInterface(gf *GenFile, s *types.TypeName, qf types.Qualifie
 
 	gf.I()
 
-	itf := s.Type().Underlying().(*types.Interface)
-
 	fieldAmount := 0
 
-	for i := 0; i < itf.NumMethods(); i++ {
-		f := itf.Method(i)
+	// Fields
+	switch sx := s.Type().(type) {
+	case *types.Named:
+		switch st := sx.Underlying().(type) {
+		case *types.Struct:
+			for i := 0; i < st.NumFields(); i++ {
+				f := st.Field(i)
+				if f.Embedded() {
+					continue
+				}
+				gf.StartLine()
+				gf.Append("%s: ", c.pythonIdent(f.Name()))
+				gf.Append(c.typeName(f.Type(), qf, true, false))
+				gf.Append(c.ReturnLineComment(f))
+				gf.NL()
 
-		c.outputFunc(gf, f, qf, true)
-
-		fieldAmount++
-	}
-
-	if fieldAmount == 0 {
-		gf.Line("pass")
-	}
-	gf.D()
-
-}
-
-func (c *Conv) outputStruct(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
-	gf.Line("# %s", c.FileSet.Position(s.Pos()))
-
-	basetypes := c.baseTypes(s.Type())
-	baseclasses := []string{}
-
-	for _, bt := range basetypes {
-		baseclasses = append(baseclasses, c.typeName(bt, qf, false, true))
-	}
-
-	base := ""
-	if len(baseclasses) > 0 {
-		base = fmt.Sprintf("(%s)", strings.Join(baseclasses, ", "))
-	}
-
-	gf.StartLine()
-	gf.Append("class %s%s:", s.Name(), base)
-	gf.Append(c.ReturnLineComment(s))
-	gf.NL()
-
-	gf.I()
-
-	st := s.Type().Underlying().(*types.Struct)
-
-	fieldAmount := 0
-
-	for i := 0; i < st.NumFields(); i++ {
-		f := st.Field(i)
-		if f.Embedded() {
-			continue
+				fieldAmount++
+			}
 		}
-		gf.StartLine()
-		gf.Append("%s: ", c.pythonIdent(f.Name()))
-		gf.Append(c.typeName(f.Type(), qf, true, false))
-		gf.Append(c.ReturnLineComment(f))
-		gf.NL()
-
-		fieldAmount++
 	}
+
 	hasFieldSpc := fieldAmount == 0
 
-	for _, meth := range typeutil.IntuitiveMethodSet(s.Type(), nil) {
-		//if !meth.Obj().Exported() && !app.Private {
-		//	continue // skip unexported names
-		//}
+	// Methods
+	switch sx := s.Type().(type) {
+	case *types.Named:
+		switch st := sx.Underlying().(type) {
+		case *types.Interface:
+			for i := 0; i < st.NumExplicitMethods(); i++ {
+				if !hasFieldSpc {
+					gf.NL()
+					hasFieldSpc = true
+				}
 
-		if !hasFieldSpc {
-			gf.NL()
-			hasFieldSpc = true
-		}
-
-		switch meth.Kind() {
-		case types.MethodVal:
-			c.outputFunc(gf, meth.Obj().(*types.Func), qf, true)
-		case types.MethodExpr:
-			c.outputFunc(gf, meth.Obj().(*types.Func), qf, true)
+				f := st.ExplicitMethod(i)
+				c.outputFunc(gf, f, qf, true)
+				fieldAmount++
+			}
 		default:
-			panic(fmt.Sprintf("unsupported selector(%T)", meth))
-		}
+			for i := 0; i < sx.NumMethods(); i++ {
+				if !hasFieldSpc {
+					gf.NL()
+					hasFieldSpc = true
+				}
 
-		fieldAmount++
+				f := sx.Method(i)
+				c.outputFunc(gf, f, qf, true)
+				fieldAmount++
+			}
+		}
 	}
 
 	if fieldAmount == 0 {

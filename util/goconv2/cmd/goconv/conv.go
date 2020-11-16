@@ -107,7 +107,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		gf.Line("#")
 		gf.NL()
 		for _, s := range interfaces {
-			c.outputInterface(gf, s, qual)
+			c.outputClass(gf, s, qual)
 			gf.NL()
 		}
 
@@ -117,7 +117,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		gf.Line("#")
 		gf.NL()
 		for _, s := range structs {
-			c.outputStruct(gf, s, qual)
+			c.outputClass(gf, s, qual)
 			gf.NL()
 		}
 
