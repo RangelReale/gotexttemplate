@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/jimmyfrasche/closed"
 	"go/ast"
 	"go/token"
 	"go/types"
@@ -27,6 +28,27 @@ func (c *Conv) baseTypes(typ types.Type) (basetypes []types.Type) {
 		}
 	}
 	return
+}
+
+func (c *Conv) typeIsEnum(typ types.Object, closedTypes []closed.Type) bool {
+	for _, v := range closedTypes {
+		switch v := v.(type) {
+		case *closed.Enum:
+			for _, et := range v.Types() {
+				if et == typ {
+					return true
+				}
+			}
+			for _, lbl := range v.Labels {
+				for _, lbli := range lbl {
+					if lbli == typ {
+						return true
+					}
+				}
+			}
+		}
+	}
+	return false
 }
 
 type Poser interface {

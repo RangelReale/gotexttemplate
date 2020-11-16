@@ -32,6 +32,15 @@ func (c *Conv) outputEnum(gf *GenFile, enum *closed.Enum) {
 	gf.D()
 }
 
+func (c *Conv) outputConst(gf *GenFile, s *types.Const, qf types.Qualifier) {
+	gf.Line("# %s", c.FileSet.Position(s.Pos()))
+
+	gf.Append("%s", s.Name())
+	gf.Append(" = %s", s.Val().String())
+	gf.Append(c.ReturnLineComment(s))
+	gf.NL()
+}
+
 func (c *Conv) outputInterface(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	gf.Line("# %s", c.FileSet.Position(s.Pos()))
 
@@ -61,17 +70,19 @@ func (c *Conv) outputInterface(gf *GenFile, s *types.TypeName, qf types.Qualifie
 	for i := 0; i < itf.NumMethods(); i++ {
 		f := itf.Method(i)
 
-		gf.Line("# %s", c.FileSet.Position(f.Pos()))
-		gf.StartLine()
-		gf.Append("def %s", c.pythonIdent(f.Name()))
-		c.outputSignature(gf, f.Type().(*types.Signature), qf, true)
-		gf.Append(":")
-		gf.Append(c.ReturnLineComment(f))
+		c.outputFunc(gf, f, qf, true)
 
-		gf.NL()
-		gf.I()
-		gf.Line("pass")
-		gf.D()
+		//gf.Line("# %s", c.FileSet.Position(f.Pos()))
+		//gf.StartLine()
+		//gf.Append("def %s", c.pythonIdent(f.Name()))
+		//c.outputSignature(gf, f.Type().(*types.Signature), qf, true)
+		//gf.Append(":")
+		//gf.Append(c.ReturnLineComment(f))
+		//gf.NL()
+		//
+		//gf.I()
+		//gf.Line("pass")
+		//gf.D()
 
 		fieldAmount++
 	}
@@ -90,7 +101,6 @@ func (c *Conv) outputStruct(gf *GenFile, s *types.TypeName, qf types.Qualifier) 
 	baseclasses := []string{}
 
 	for _, bt := range basetypes {
-		//baseclasses = append(baseclasses, bt.Name())
 		baseclasses = append(baseclasses, c.typeName(bt, qf, false))
 	}
 
@@ -135,24 +145,33 @@ func (c *Conv) outputStruct(gf *GenFile, s *types.TypeName, qf types.Qualifier) 
 			hasFieldSpc = true
 		}
 
-		gf.Line("# %s", c.FileSet.Position(meth.Obj().Pos()))
-		gf.StartLine()
-		gf.Append("def %s", c.pythonIdent(meth.Obj().Name()))
 		switch meth.Kind() {
 		case types.MethodVal:
-			c.outputSignature(gf, meth.Obj().(*types.Func).Type().(*types.Signature), qf, true)
+			c.outputFunc(gf, meth.Obj().(*types.Func), qf, true)
 		case types.MethodExpr:
-			c.outputSignature(gf, meth.Obj().(*types.Func).Type().(*types.Signature), qf, true)
+			c.outputFunc(gf, meth.Obj().(*types.Func), qf, true)
 		default:
 			panic(fmt.Sprintf("unsupported selector(%T)", meth))
 		}
-		gf.Append(":")
-		gf.Append(c.ReturnLineComment(meth.Obj()))
 
-		gf.NL()
-		gf.I()
-		gf.Line("pass")
-		gf.D()
+		//gf.Line("# %s", c.FileSet.Position(meth.Obj().Pos()))
+		//gf.StartLine()
+		//gf.Append("def %s", c.pythonIdent(meth.Obj().Name()))
+		//switch meth.Kind() {
+		//case types.MethodVal:
+		//	c.outputSignature(gf, meth.Obj().(*types.Func).Type().(*types.Signature), qf, true)
+		//case types.MethodExpr:
+		//	c.outputSignature(gf, meth.Obj().(*types.Func).Type().(*types.Signature), qf, true)
+		//default:
+		//	panic(fmt.Sprintf("unsupported selector(%T)", meth))
+		//}
+		//gf.Append(":")
+		//gf.Append(c.ReturnLineComment(meth.Obj()))
+		//
+		//gf.NL()
+		//gf.I()
+		//gf.Line("pass")
+		//gf.D()
 
 		fieldAmount++
 	}
@@ -161,6 +180,24 @@ func (c *Conv) outputStruct(gf *GenFile, s *types.TypeName, qf types.Qualifier) 
 		gf.Line("pass")
 	}
 	gf.D()
+}
+
+func (c *Conv) outputFunc(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
+	c.outputFuncSig(gf, s, qf, self)
+
+	gf.I()
+	gf.Line("pass")
+	gf.D()
+}
+
+func (c *Conv) outputFuncSig(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
+	gf.Line("# %s", c.FileSet.Position(s.Pos()))
+	gf.StartLine()
+	gf.Append("def %s", c.pythonIdent(s.Name()))
+	c.outputSignature(gf, s.Type().(*types.Signature), qf, self)
+	gf.Append(":")
+	gf.Append(c.ReturnLineComment(s))
+	gf.NL()
 }
 
 func (c *Conv) outputSignature(gf *GenFile, sig *types.Signature, qf types.Qualifier, self bool) {
@@ -185,7 +222,13 @@ func (c *Conv) outputSignature(gf *GenFile, sig *types.Signature, qf types.Quali
 	}
 
 	// multiple or named result(s)
+	if n > 1 {
+		gf.Append("Tuple[")
+	}
 	c.outputTuple(gf, sig.Results(), false, qf)
+	if n > 1 {
+		gf.Append("]")
+	}
 }
 
 func (c *Conv) outputTuple(gf *GenFile, t *types.Tuple, variadic bool, qf types.Qualifier) {
@@ -195,6 +238,9 @@ func (c *Conv) outputTuple(gf *GenFile, t *types.Tuple, variadic bool, qf types.
 			if i > 0 {
 				gf.Append(", ")
 			}
+			if _, ok := v.Type().(*types.Slice); ok {
+				gf.Append("*")
+			}
 			if v.Name() != "" {
 				gf.Append(v.Name())
 				gf.Append(": ")
@@ -202,17 +248,18 @@ func (c *Conv) outputTuple(gf *GenFile, t *types.Tuple, variadic bool, qf types.
 			typ := v.Type()
 			if variadic && i == t.Len()-1 {
 				if s, ok := typ.(*types.Slice); ok {
-					gf.Append("*")
+					//gf.Append("*")
 					typ = s.Elem()
 				} else {
-					// special case:
-					// append(s, "foo"...) leads to signature func([]byte, string...)
-					if t, ok := typ.Underlying().(*types.Basic); !ok || t.Kind() != types.String {
-						panic("internal error: string type expected")
-					}
-					gf.Append("**")
-					gf.Append(c.typeName(typ, qf, false))
-					continue
+					panic(fmt.Sprintf("Unuspported variadic type: %T", typ))
+					//// special case:
+					//// append(s, "foo"...) leads to signature func([]byte, string...)
+					//if t, ok := typ.Underlying().(*types.Basic); !ok || t.Kind() != types.String {
+					//	panic("internal error: string type expected")
+					//}
+					//gf.Append("**")
+					//gf.Append(c.typeName(typ, qf, false))
+					//continue
 				}
 			}
 			gf.Append(c.typeName(typ, qf, false))

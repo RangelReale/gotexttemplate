@@ -52,7 +52,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		gf.Line("# package: %s", pkg.PkgPath)
 		gf.NL()
 
-		_, _, _, allTypes := c.extract(pkg.Types.Scope())
+		consts, funcs, _, allTypes := c.extract(pkg.Types.Scope())
 		structs := c.findStructs(allTypes)
 		interfaces := c.findInterfaces(allTypes)
 
@@ -62,6 +62,10 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		}
 
 		// Enums
+		gf.Line("#")
+		gf.Line("# ENUMS")
+		gf.Line("#")
+		gf.NL()
 		for _, v := range ct {
 			switch v := v.(type) {
 			case *closed.Enum:
@@ -70,15 +74,45 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 			}
 		}
 
+		// Consts
+		gf.Line("#")
+		gf.Line("# CONSTS")
+		gf.Line("#")
+		gf.NL()
+		for _, s := range consts {
+			if c.typeIsEnum(s, ct) {
+				continue
+			}
+			c.outputConst(gf, s, qual)
+			gf.NL()
+		}
+
 		// Interfaces
+		gf.Line("#")
+		gf.Line("# INTERFACES")
+		gf.Line("#")
+		gf.NL()
 		for _, s := range interfaces {
 			c.outputInterface(gf, s, qual)
 			gf.NL()
 		}
 
 		// Structs
+		gf.Line("#")
+		gf.Line("# STRUCTS")
+		gf.Line("#")
+		gf.NL()
 		for _, s := range structs {
 			c.outputStruct(gf, s, qual)
+			gf.NL()
+		}
+
+		gf.Line("#")
+		gf.Line("# FUNCS")
+		gf.Line("#")
+		gf.NL()
+		for _, s := range funcs {
+			c.outputFunc(gf, s, qual, false)
 			gf.NL()
 		}
 

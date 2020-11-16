@@ -365,7 +365,7 @@ func (p *Processor) WriteObject(gf *GenFile, obj types.Object, qf types.Qualifie
 		gf.Line("pass")
 		gf.D()
 		gf.NL()
-		//writeFuncName(buf, tobj, qf)
+		//types.writeFuncName(buf, tobj, qf)
 		//if typ != nil {
 		//	WriteSignature(buf, typ.(*Signature), qf)
 		//}
