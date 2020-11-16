@@ -14,5 +14,13 @@ class reflect_Type:
     pass
 
 
+class reflect_Kind:
+    pass
+
+
 class strings_Builder:
+    pass
+
+
+class sync_RWMutex:
     pass

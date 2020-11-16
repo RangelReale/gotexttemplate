@@ -8,6 +8,7 @@ import (
 )
 
 func (c *Conv) outputEnum(gf *GenFile, enum *closed.Enum) {
+	gf.NL()
 	gf.Line("# %s", c.FileSet.Position(enum.Types()[0].Pos()))
 	gf.Line("class %s(Enum):", enum.Types()[0].Name())
 	gf.I()
@@ -100,7 +101,7 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 		}
 	}
 
-	hasFieldSpc := fieldAmount == 0
+	//hasFieldSpc := fieldAmount == 0
 
 	// Methods
 	switch sx := s.Type().(type) {
@@ -108,10 +109,11 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 		switch st := sx.Underlying().(type) {
 		case *types.Interface:
 			for i := 0; i < st.NumExplicitMethods(); i++ {
-				if !hasFieldSpc {
-					gf.NL()
-					hasFieldSpc = true
-				}
+				gf.NL()
+				//if !hasFieldSpc {
+				//	gf.NL()
+				//	hasFieldSpc = true
+				//}
 
 				f := st.ExplicitMethod(i)
 				c.outputFunc(gf, f, qf, true)
@@ -119,10 +121,11 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 			}
 		default:
 			for i := 0; i < sx.NumMethods(); i++ {
-				if !hasFieldSpc {
-					gf.NL()
-					hasFieldSpc = true
-				}
+				gf.NL()
+				//if !hasFieldSpc {
+				//	gf.NL()
+				//	hasFieldSpc = true
+				//}
 
 				f := sx.Method(i)
 				c.outputFunc(gf, f, qf, true)

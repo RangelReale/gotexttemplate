@@ -90,6 +90,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		}
 
 		// Enums
+		gf.NL()
 		gf.Line("#")
 		gf.Line("# ENUMS")
 		gf.Line("#")
@@ -103,6 +104,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		}
 
 		// Consts
+		gf.NL()
 		gf.Line("#")
 		gf.Line("# CONSTS")
 		gf.Line("#")
@@ -111,6 +113,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 			if c.typeIsEnum(s, ct) {
 				continue
 			}
+			gf.NL()
 			c.outputConst(gf, s, qual)
 			gf.NL()
 		}
@@ -124,35 +127,43 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 			if c.typeIsEnum(s, ct) {
 				continue
 			}
+			gf.NL()
 			c.outputTypes(gf, s, qual)
 			gf.NL()
 		}
 
 		// Interfaces
+		gf.NL()
 		gf.Line("#")
 		gf.Line("# INTERFACES")
 		gf.Line("#")
 		gf.NL()
 		for _, s := range interfaces {
+			gf.NL()
 			c.outputClass(gf, s, qual)
 			gf.NL()
 		}
 
 		// Structs
+		gf.NL()
 		gf.Line("#")
 		gf.Line("# STRUCTS")
 		gf.Line("#")
 		gf.NL()
-		for _, s := range structs {
+		for _, s := range c.sortStructs(pkg, structs) {
+			gf.NL()
 			c.outputClass(gf, s, qual)
 			gf.NL()
 		}
 
+		// Funcs
+		gf.NL()
 		gf.Line("#")
 		gf.Line("# FUNCS")
 		gf.Line("#")
 		gf.NL()
 		for _, s := range funcs {
+			gf.NL()
 			c.outputFunc(gf, s, qual, false)
 			gf.NL()
 		}
@@ -241,6 +252,22 @@ func (c *Conv) findStructs(ts []*types.TypeName) (structs []*types.TypeName) {
 				structs = append(structs, t)
 			}
 		}
+	}
+	return
+}
+
+func (c *Conv) sortStructs(pkg *packages.Package, ts []*types.TypeName) (structs []*types.TypeName) {
+	switch pkg.PkgPath {
+	case "text/template":
+		for _, t := range ts {
+			if t.Name() == "common" {
+				structs = append([]*types.TypeName{t}, structs...)
+			} else {
+				structs = append(structs, t)
+			}
+		}
+	default:
+		return ts
 	}
 	return
 }
