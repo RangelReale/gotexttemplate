@@ -8,6 +8,7 @@ import (
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/types/typeutil"
+	"github.com/jimmyfrasche/closed"
 	"io/ioutil"
 	"log"
 	"os"
@@ -129,6 +130,18 @@ func (p *Processor) processPackage(pkg *packages.Package) {
 	if pkg.Types != nil {
 		qual := types.RelativeTo(pkg.Types)
 		scope := pkg.Types.Scope()
+
+		ct, err := closed.InPackage(p.Fset, pkg.Syntax, pkg.Types)
+		if err != nil {
+			panic(err)
+		}
+		for _, v := range ct {
+			switch v := v.(type) {
+			case *closed.Enum:
+				fmt.Println(v.Types()[0].Name())
+			}
+		}
+
 		for _, name := range scope.Names() {
 			obj := scope.Lookup(name)
 
