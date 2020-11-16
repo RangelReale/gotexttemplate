@@ -64,6 +64,7 @@ func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
 		gf.Line("from enum import Enum")
 		gf.Line("from typing import Callable, Optional, List, Dict, Any, Tuple")
 		gf.Line("import queue")
+		gf.Line("from . import goext")
 
 		for _, pi := range pkg.Imports {
 			for _, pc := range c.Packages {

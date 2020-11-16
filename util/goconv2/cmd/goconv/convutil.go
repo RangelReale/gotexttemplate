@@ -51,6 +51,15 @@ func (c *Conv) typeIsEnum(typ types.Object, closedTypes []closed.Type) bool {
 	return false
 }
 
+func (c *Conv) isExternalImport(pkg *types.Package) bool {
+	for _, pc := range c.Packages {
+		if pc.Types == pkg {
+			return false
+		}
+	}
+	return true
+}
+
 type Poser interface {
 	Pos() token.Pos
 }

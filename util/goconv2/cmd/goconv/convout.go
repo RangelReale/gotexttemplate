@@ -193,7 +193,6 @@ func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) str
 	var sb strings.Builder
 
 	sb.WriteString("Callable[[")
-
 	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf, false))
 	sb.WriteString("], ")
 
@@ -227,14 +226,18 @@ func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier, na
 			if i > 0 {
 				sb.WriteString(", ")
 			}
-			if _, ok := v.Type().(*types.Slice); ok {
-				sb.WriteString("*")
+			if variadic && i == t.Len()-1 {
+				if _, ok := v.Type().(*types.Slice); ok {
+					sb.WriteString("*")
+				}
 			}
 			if named {
 				if v.Name() != "" {
-					sb.WriteString(v.Name())
-					sb.WriteString(": ")
+					sb.WriteString(c.pythonIdent(v.Name()))
+				} else {
+					sb.WriteString(fmt.Sprintf("p%d", i))
 				}
+				sb.WriteString(": ")
 			}
 			typ := v.Type()
 			if variadic && i == t.Len()-1 {
@@ -333,7 +336,11 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeD
 		if pkg == "" && !typeDecl {
 			tb.WriteString("'")
 		}
-		tb.WriteString(s)
+		if s == "error" && t.Obj().Pkg() == nil {
+			tb.WriteString("goext.error")
+		} else {
+			tb.WriteString(s)
+		}
 		if pkg == "" && !typeDecl {
 			tb.WriteString("'")
 		}
@@ -355,15 +362,21 @@ func (c *Conv) returnPackage(pkg *types.Package, qf types.Qualifier) string {
 		s = pkg.Path()
 	}
 	if s != "" {
-		return fmt.Sprintf("%s.", strings.Replace(s, "/", "_", -1))
+		if c.isExternalImport(pkg) {
+			return fmt.Sprintf("goext.%s_", strings.Replace(s, "/", "_", -1))
+		} else {
+			return fmt.Sprintf("%s.", strings.Replace(s, "/", "_", -1))
+		}
 	}
 	return ""
 }
 
 func (c *Conv) pythonIdent(ident string) string {
-	if ident == "True" || ident == "False" {
+	switch ident {
+	case "True", "False", "in", "or", "not", "and":
 		return fmt.Sprintf("%s_", ident)
 	}
+
 	return ident
 }
 

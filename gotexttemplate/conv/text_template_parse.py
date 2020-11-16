@@ -4,6 +4,7 @@
 from enum import Enum
 from typing import Callable, Optional, List, Dict, Any, Tuple
 import queue
+from . import goext
 
 #
 # ENUMS
@@ -130,7 +131,7 @@ class Node:
     def tree(self) -> Optional['Tree']:
         pass
     # c:\go\src\text\template\parse\node.go:32:2
-    def writeTo(self, Optional[strings.Builder]) -> None:
+    def writeTo(self, p0: Optional[goext.strings_Builder]) -> None:
         pass
 
 #
@@ -147,7 +148,7 @@ class ActionNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:240:22
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:246:22
     def tree(self) -> Optional['Tree']:
@@ -165,7 +166,7 @@ class BoolNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:565:20
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:569:20
     def tree(self) -> Optional['Tree']:
@@ -186,7 +187,7 @@ class BranchNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:822:22
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:847:22
     def tree(self) -> Optional['Tree']:
@@ -208,7 +209,7 @@ class ChainNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:524:21
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:538:21
     def tree(self) -> Optional['Tree']:
@@ -229,7 +230,7 @@ class CommandNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:277:23
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:292:23
     def tree(self) -> Optional['Tree']:
@@ -249,7 +250,7 @@ class DotNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:410:19
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:414:19
     def tree(self) -> Optional['Tree']:
@@ -267,7 +268,7 @@ class FieldNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:476:21
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:483:21
     def tree(self) -> Optional['Tree']:
@@ -291,7 +292,7 @@ class IdentifierNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:340:26
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:344:26
     def tree(self) -> Optional['Tree']:
@@ -321,7 +322,7 @@ class ListNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:103:20
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:109:20
     def CopyList(self) -> Optional['ListNode']:
@@ -341,7 +342,7 @@ class NilNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:444:19
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:448:19
     def tree(self) -> Optional['Tree']:
@@ -370,7 +371,7 @@ class NumberNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:702:22
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:706:22
     def tree(self) -> Optional['Tree']:
@@ -394,7 +395,7 @@ class PipeNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:177:20
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:195:20
     def tree(self) -> Optional['Tree']:
@@ -422,7 +423,7 @@ class StringNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:733:22
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:737:22
     def tree(self) -> Optional['Tree']:
@@ -442,7 +443,7 @@ class TemplateNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:923:24
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:933:24
     def tree(self) -> Optional['Tree']:
@@ -460,7 +461,7 @@ class TextNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:140:20
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:144:20
     def tree(self) -> Optional['Tree']:
@@ -489,7 +490,7 @@ class Tree:
     def newText(self, pos: 'Pos', text: str) -> Optional['TextNode']:
         pass
     # c:\go\src\text\template\parse\node.go:163:16
-    def newPipeline(self, pos: 'Pos', line: int, *vars: List[Optional['VariableNode']]) -> Optional['PipeNode']:
+    def newPipeline(self, pos: 'Pos', line: int, vars: List[Optional['VariableNode']]) -> Optional['PipeNode']:
         pass
     # c:\go\src\text\template\parse\node.go:230:16
     def newAction(self, pos: 'Pos', line: int, pipe: Optional['PipeNode']) -> Optional['ActionNode']:
@@ -516,7 +517,7 @@ class Tree:
     def newBool(self, pos: 'Pos', true: bool) -> Optional['BoolNode']:
         pass
     # c:\go\src\text\template\parse\node.go:595:16
-    def newNumber(self, pos: 'Pos', text: str, typ: 'itemType') -> Tuple[Optional['NumberNode'], 'error']:
+    def newNumber(self, pos: 'Pos', text: str, typ: 'itemType') -> Tuple[Optional['NumberNode'], 'goext.error']:
         pass
     # c:\go\src\text\template\parse\node.go:725:16
     def newString(self, pos: 'Pos', orig: str, text: str) -> Optional['StringNode']:
@@ -570,7 +571,7 @@ class Tree:
     def errorf(self, format: str, *args: Any) -> None:
         pass
     # c:\go\src\text\template\parse\parse.go:157:16
-    def error(self, err: 'error') -> None:
+    def error(self, err: 'goext.error') -> None:
         pass
     # c:\go\src\text\template\parse\parse.go:162:16
     def expect(self, expected: 'itemType', context: str) -> 'item':
@@ -582,16 +583,16 @@ class Tree:
     def unexpected(self, token: 'item', context: str) -> None:
         pass
     # c:\go\src\text\template\parse\parse.go:185:16
-    def recover(self, errp: Optional['error']) -> None:
+    def recover(self, errp: Optional['goext.error']) -> None:
         pass
     # c:\go\src\text\template\parse\parse.go:200:16
-    def startParse(self, *funcs: List[Dict[str, Any]], lex: Optional['lexer'], treeSet: Dict[str, Optional['Tree']]) -> None:
+    def startParse(self, funcs: List[Dict[str, Any]], lex: Optional['lexer'], treeSet: Dict[str, Optional['Tree']]) -> None:
         pass
     # c:\go\src\text\template\parse\parse.go:209:16
     def stopParse(self) -> None:
         pass
     # c:\go\src\text\template\parse\parse.go:220:16
-    def Parse(self, text: str, leftDelim: str, rightDelim: str, treeSet: Dict[str, Optional['Tree']], *funcs: Dict[str, Any]) -> Tuple[Optional['Tree'], 'error']:
+    def Parse(self, text: str, leftDelim: str, rightDelim: str, treeSet: Dict[str, Optional['Tree']], *funcs: Dict[str, Any]) -> Tuple[Optional['Tree'], 'goext.error']:
         pass
     # c:\go\src\text\template\parse\parse.go:232:16
     def add(self) -> None:
@@ -672,7 +673,7 @@ class VariableNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:371:24
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:380:24
     def tree(self) -> Optional['Tree']:
@@ -699,7 +700,7 @@ class elseNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:793:20
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:797:20
     def tree(self) -> Optional['Tree']:
@@ -716,7 +717,7 @@ class endNode(NodeType, Pos):
     def String(self) -> str:
         pass
     # c:\go\src\text\template\parse\node.go:761:19
-    def writeTo(self, sb: Optional[strings.Builder]) -> None:
+    def writeTo(self, sb: Optional[goext.strings_Builder]) -> None:
         pass
     # c:\go\src\text\template\parse\node.go:765:19
     def tree(self) -> Optional['Tree']:
@@ -811,7 +812,7 @@ def NewIdentifier(ident: str) -> Optional['IdentifierNode']:
     pass
 
 # c:\go\src\text\template\parse\parse.go:51:6
-def Parse(name: str, text: str, leftDelim: str, rightDelim: str, *funcs: Dict[str, Any]) -> Tuple[Dict[str, Optional['Tree']], 'error']:
+def Parse(name: str, text: str, leftDelim: str, rightDelim: str, *funcs: Dict[str, Any]) -> Tuple[Dict[str, Optional['Tree']], 'goext.error']:
     pass
 
 # c:\go\src\text\template\parse\lex.go:663:6
