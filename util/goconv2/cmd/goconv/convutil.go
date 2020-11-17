@@ -17,7 +17,6 @@ func (c *Conv) baseTypes(typ types.Type) (basetypes []types.Type) {
 		for i := 0; i < t.NumFields(); i++ {
 			f := t.Field(i)
 			if f.Embedded() {
-				//basetypes = append(basetypes, f)
 				basetypes = append(basetypes, f.Type())
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/packages"
+	"golang.org/x/tools/go/types/typeutil"
 	"io"
 	"os"
 	"strings"
@@ -246,9 +247,21 @@ func (c *Conv) findInterfaces(ts []*types.TypeName) (interfaces []*types.TypeNam
 
 func (c *Conv) findStructs(ts []*types.TypeName) (structs []*types.TypeName) {
 	for _, t := range ts {
+		found := false
 		if !t.IsAlias() {
 			switch t.Type().Underlying().(type) {
 			case *types.Struct:
+				structs = append(structs, t)
+				found = true
+			case *types.Interface:
+				found = true
+			}
+		}
+
+		if !found {
+			imset := typeutil.IntuitiveMethodSet(t.Type(), nil)
+			if len(imset) > 0 {
+				// type with methods
 				structs = append(structs, t)
 			}
 		}

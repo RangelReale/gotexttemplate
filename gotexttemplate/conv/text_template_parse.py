@@ -12,30 +12,6 @@ from . import goext
 #
 
 
-# c:\go\src\text\template\parse\node.go:36:6
-class NodeType(Enum):
-    NodeText = 0  # Plain text.
-    NodeAction = 1  # A non-control action such as a field evaluation.
-    NodeBool = 2  # A boolean constant.
-    NodeChain = 3  # A sequence of field accesses.
-    NodeCommand = 4  # An element of a pipeline.
-    NodeDot = 5  # The cursor, dot.
-    nodeElse = 6  # An else action. Not added to tree.
-    nodeEnd = 7  # An end action. Not added to tree.
-    NodeField = 8  # A field or method name.
-    NodeIdentifier = 9  # An identifier; always a function name.
-    NodeIf = 10  # An if action.
-    NodeList = 11  # A list of Nodes.
-    NodeNil = 12  # An untyped nil constant.
-    NodeNumber = 13  # A numerical constant.
-    NodePipe = 14  # A pipeline of commands.
-    NodeRange = 15  # A range action.
-    NodeString = 16  # A string constant.
-    NodeTemplate = 17  # A template invocation action.
-    NodeVariable = 18  # A $ variable.
-    NodeWith = 19  # A with action.
-
-
 # c:\go\src\text\template\parse\lex.go:37:6
 class itemType(Enum):
     itemError = 0  # error occurred; value is text of error
@@ -70,6 +46,30 @@ class itemType(Enum):
     itemRange = 29  # range keyword
     itemTemplate = 30  # template keyword
     itemWith = 31  # with keyword
+
+
+# c:\go\src\text\template\parse\node.go:36:6
+class NodeType(Enum):
+    NodeText = 0  # Plain text.
+    NodeAction = 1  # A non-control action such as a field evaluation.
+    NodeBool = 2  # A boolean constant.
+    NodeChain = 3  # A sequence of field accesses.
+    NodeCommand = 4  # An element of a pipeline.
+    NodeDot = 5  # The cursor, dot.
+    nodeElse = 6  # An else action. Not added to tree.
+    nodeEnd = 7  # An end action. Not added to tree.
+    NodeField = 8  # A field or method name.
+    NodeIdentifier = 9  # An identifier; always a function name.
+    NodeIf = 10  # An if action.
+    NodeList = 11  # A list of Nodes.
+    NodeNil = 12  # An untyped nil constant.
+    NodeNumber = 13  # A numerical constant.
+    NodePipe = 14  # A pipeline of commands.
+    NodeRange = 15  # A range action.
+    NodeString = 16  # A string constant.
+    NodeTemplate = 17  # A template invocation action.
+    NodeVariable = 18  # A $ variable.
+    NodeWith = 19  # A with action.
 
 
 #
@@ -426,6 +426,14 @@ class NilNode(Node, Pos):
         pass
 
 
+# c:\go\src\text\template\parse\node.go:36:6
+class NodeType:
+
+    # c:\go\src\text\template\parse\node.go:48:19
+    def Type(self) -> 'NodeType':
+        pass
+
+
 # c:\go\src\text\template\parse\node.go:580:6
 class NumberNode(Node, Pos):
     tr: Optional['Tree']
@@ -490,6 +498,14 @@ class PipeNode(Node, Pos):
 
     # c:\go\src\text\template\parse\node.go:215:20
     def Copy(self) -> 'Node':
+        pass
+
+
+# c:\go\src\text\template\parse\node.go:40:6
+class Pos:
+
+    # c:\go\src\text\template\parse\node.go:42:14
+    def Position(self) -> 'Pos':
         pass
 
 
