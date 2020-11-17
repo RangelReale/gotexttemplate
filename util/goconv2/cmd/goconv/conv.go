@@ -261,7 +261,7 @@ func (c *Conv) sortStructs(pkg *packages.Package, ts []*types.TypeName) (structs
 	case "text/template":
 		for _, t := range ts {
 			if t.Name() == "common" {
-				structs = append([]*types.TypeName{t}, structs...)
+				structs = append([]*types.TypeName{t}, structs...) // prepend
 			} else {
 				structs = append(structs, t)
 			}

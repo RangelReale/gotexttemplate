@@ -164,7 +164,7 @@ class Node:
 
 
 # c:\go\src\text\template\parse\node.go:222:6
-class ActionNode(Node, NodeType, Pos):
+class ActionNode(Node, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     Pipe: Optional['PipeNode']  # The pipeline in the action.
@@ -187,7 +187,7 @@ class ActionNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:547:6
-class BoolNode(Node, NodeType, Pos):
+class BoolNode(Node, Pos):
     tr: Optional['Tree']
     True_: bool  # The value of the boolean constant.
 
@@ -209,7 +209,7 @@ class BoolNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:806:6
-class BranchNode(Node, NodeType, Pos):
+class BranchNode(Node, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     Pipe: Optional['PipeNode']  # The pipeline to be evaluated.
@@ -234,7 +234,7 @@ class BranchNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:494:6
-class ChainNode(Node, NodeType, Pos):
+class ChainNode(Node, Pos):
     tr: Optional['Tree']
     Node: 'Node'
     Field: Optional[List[str]]  # The identifiers in lexical order.
@@ -261,7 +261,7 @@ class ChainNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:256:6
-class CommandNode(Node, NodeType, Pos):
+class CommandNode(Node, Pos):
     tr: Optional['Tree']
     Args: Optional[List['Node']]  # Arguments in lexical order: Identifier, field, or constant.
 
@@ -287,7 +287,7 @@ class CommandNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:389:6
-class DotNode(Node, NodeType, Pos):
+class DotNode(Node, Pos):
     tr: Optional['Tree']
 
     # c:\go\src\text\template\parse\node.go:399:19
@@ -312,7 +312,7 @@ class DotNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:459:6
-class FieldNode(Node, NodeType, Pos):
+class FieldNode(Node, Pos):
     tr: Optional['Tree']
     Ident: Optional[List[str]]  # The identifiers in lexical order.
 
@@ -334,7 +334,7 @@ class FieldNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:308:6
-class IdentifierNode(Node, NodeType, Pos):
+class IdentifierNode(Node, Pos):
     tr: Optional['Tree']
     Ident: str  # The identifier's name.
 
@@ -364,7 +364,7 @@ class IdentifierNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:865:6
-class IfNode(Node, BranchNode):
+class IfNode(BranchNode):
 
     # c:\go\src\text\template\parse\node.go:873:18
     def Copy(self) -> 'Node':
@@ -372,7 +372,7 @@ class IfNode(Node, BranchNode):
 
 
 # c:\go\src\text\template\parse\node.go:78:6
-class ListNode(Node, NodeType, Pos):
+class ListNode(Node, Pos):
     tr: Optional['Tree']
     Nodes: Optional[List['Node']]  # The element nodes in lexical order.
 
@@ -402,7 +402,7 @@ class ListNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:423:6
-class NilNode(Node, NodeType, Pos):
+class NilNode(Node, Pos):
     tr: Optional['Tree']
 
     # c:\go\src\text\template\parse\node.go:433:19
@@ -427,7 +427,7 @@ class NilNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:580:6
-class NumberNode(Node, NodeType, Pos):
+class NumberNode(Node, Pos):
     tr: Optional['Tree']
     IsInt: bool  # Number has an integral value.
     IsUint: bool  # Number has an unsigned integral value.
@@ -461,7 +461,7 @@ class NumberNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:153:6
-class PipeNode(Node, NodeType, Pos):
+class PipeNode(Node, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     IsAssign: bool  # The variables are being assigned, not declared.
@@ -494,7 +494,7 @@ class PipeNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:878:6
-class RangeNode(Node, BranchNode):
+class RangeNode(BranchNode):
 
     # c:\go\src\text\template\parse\node.go:886:21
     def Copy(self) -> 'Node':
@@ -502,7 +502,7 @@ class RangeNode(Node, BranchNode):
 
 
 # c:\go\src\text\template\parse\node.go:717:6
-class StringNode(Node, NodeType, Pos):
+class StringNode(Node, Pos):
     tr: Optional['Tree']
     Quoted: str  # The original text of the string, with quotes.
     Text: str  # The string, after quote processing.
@@ -525,7 +525,7 @@ class StringNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:904:6
-class TemplateNode(Node, NodeType, Pos):
+class TemplateNode(Node, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     Name: str  # The name of the template (unquoted).
@@ -549,7 +549,7 @@ class TemplateNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:125:6
-class TextNode(Node, NodeType, Pos):
+class TextNode(Node, Pos):
     tr: Optional['Tree']
     Text: Optional[List[int]]  # The text; may span newlines.
 
@@ -825,7 +825,7 @@ class Tree:
 
 
 # c:\go\src\text\template\parse\node.go:354:6
-class VariableNode(Node, NodeType, Pos):
+class VariableNode(Node, Pos):
     tr: Optional['Tree']
     Ident: Optional[List[str]]  # Variable name and fields in lexical order.
 
@@ -847,7 +847,7 @@ class VariableNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:891:6
-class WithNode(Node, BranchNode):
+class WithNode(BranchNode):
 
     # c:\go\src\text\template\parse\node.go:899:20
     def Copy(self) -> 'Node':
@@ -855,7 +855,7 @@ class WithNode(Node, BranchNode):
 
 
 # c:\go\src\text\template\parse\node.go:774:6
-class elseNode(Node, NodeType, Pos):
+class elseNode(Node, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
 
@@ -881,7 +881,7 @@ class elseNode(Node, NodeType, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:747:6
-class endNode(Node, NodeType, Pos):
+class endNode(Node, Pos):
     tr: Optional['Tree']
 
     # c:\go\src\text\template\parse\node.go:757:19
