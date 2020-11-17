@@ -8,10 +8,11 @@ import (
 	"github.com/jimmyfrasche/closed"
 )
 
-func (cf *ConvFile) outputEnum(gf *GenFile, enum *closed.Enum) {
-	gf.NL()
+func (cf *ConvFile) outputEnum(gf *GenFile, enum *closed.Enum, qf types.Qualifier) {
 	gf.Line("# %s", cf.Conv.FileSet.Position(enum.Types()[0].Pos()))
-	gf.Line("class %s(Enum):", enum.Types()[0].Name())
+
+	cf.outputClassDecl(gf, enum.Types()[0], qf)
+
 	gf.I()
 
 	valueAmount := 0
@@ -27,9 +28,8 @@ func (cf *ConvFile) outputEnum(gf *GenFile, enum *closed.Enum) {
 		gf.NL()
 	}
 
-	if valueAmount == 0 {
-		gf.Line("pass")
-	}
+	cf.outputClassMembers(gf, enum.Types()[0], qf, valueAmount == 0)
+
 	gf.D()
 }
 
@@ -37,12 +37,20 @@ func (cf *ConvFile) outputConst(gf *GenFile, s *types.Const, qf types.Qualifier)
 	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
 
 	gf.Append("%s", s.Name())
+	if cf.Conv.Typed {
+		gf.Append(": ")
+		gf.Append(cf.typeName(s.Type(), qf, true, false))
+	}
 	gf.Append(" = %s", s.Val().String())
 	gf.Append(cf.Conv.ReturnLineComment(s))
 	gf.NL()
 }
 
 func (cf *ConvFile) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
+	if !cf.Conv.Typed {
+		return
+	}
+
 	// check if type is already in structs
 	for _, st := range cf.structs {
 		if s == st {
@@ -66,15 +74,21 @@ func (cf *ConvFile) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifi
 
 func (cf *ConvFile) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
+	cf.outputClassDecl(gf, s, qf)
+	gf.I()
+	cf.outputClassMembers(gf, s, qf, true)
+	gf.D()
+}
 
+func (cf *ConvFile) outputClassDecl(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	basetypes := cf.baseTypesFiltered(s, cf.closedTypes)
 	baseclasses := []string{}
 
 	for _, bt := range basetypes {
 		btn := cf.typeName(bt, qf, false, true)
-		if s.Pkg().Path() == "text/template/parse" && btn == "NodeType" {
-			continue
-		}
+		//if s.Pkg().Path() == "text/template/parse" && btn == "NodeType" {
+		//	continue
+		//}
 		baseclasses = append(baseclasses, btn)
 	}
 
@@ -87,33 +101,36 @@ func (cf *ConvFile) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifi
 	gf.Append("class %s%s:", s.Name(), base)
 	gf.Append(cf.Conv.ReturnLineComment(s))
 	gf.NL()
+}
 
-	gf.I()
-
+func (cf *ConvFile) outputClassMembers(gf *GenFile, s *types.TypeName, qf types.Qualifier, checkEmpty bool) {
 	fieldAmount := 0
 
-	// Fields
-	switch sx := s.Type().(type) {
-	case *types.Named:
-		switch st := sx.Underlying().(type) {
-		case *types.Struct:
-			for i := 0; i < st.NumFields(); i++ {
-				f := st.Field(i)
-				if f.Embedded() {
-					continue
-				}
-				gf.StartLine()
-				gf.Append("%s: ", cf.pythonIdent(f.Name()))
-				gf.Append(cf.typeName(f.Type(), qf, true, false))
-				gf.Append(cf.Conv.ReturnLineComment(f))
-				gf.NL()
+	if cf.Conv.Typed {
+		// Fields
+		switch sx := s.Type().(type) {
+		case *types.Named:
+			switch st := sx.Underlying().(type) {
+			case *types.Struct:
+				for i := 0; i < st.NumFields(); i++ {
+					f := st.Field(i)
+					if f.Embedded() {
+						continue
+					}
+					gf.StartLine()
+					gf.Append("%s", cf.pythonIdent(f.Name()))
+					if cf.Conv.Typed {
+						gf.Append(": ")
+						gf.Append(cf.typeName(f.Type(), qf, true, false))
+					}
+					gf.Append(cf.Conv.ReturnLineComment(f))
+					gf.NL()
 
-				fieldAmount++
+					fieldAmount++
+				}
 			}
 		}
 	}
-
-	//hasFieldSpc := fieldAmount == 0
 
 	// Methods
 	switch sx := s.Type().(type) {
@@ -122,11 +139,6 @@ func (cf *ConvFile) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifi
 		case *types.Interface:
 			for i := 0; i < st.NumExplicitMethods(); i++ {
 				gf.NL()
-				//if !hasFieldSpc {
-				//	gf.NL()
-				//	hasFieldSpc = true
-				//}
-
 				f := st.ExplicitMethod(i)
 				cf.outputFunc(gf, f, qf, true)
 				fieldAmount++
@@ -134,11 +146,6 @@ func (cf *ConvFile) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifi
 		default:
 			for i := 0; i < sx.NumMethods(); i++ {
 				gf.NL()
-				//if !hasFieldSpc {
-				//	gf.NL()
-				//	hasFieldSpc = true
-				//}
-
 				f := sx.Method(i)
 				cf.outputFunc(gf, f, qf, true)
 				fieldAmount++
@@ -146,10 +153,9 @@ func (cf *ConvFile) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifi
 		}
 	}
 
-	if fieldAmount == 0 {
+	if checkEmpty && fieldAmount == 0 {
 		gf.Line("pass")
 	}
-	gf.D()
 }
 
 func (cf *ConvFile) outputFunc(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
@@ -184,27 +190,33 @@ func (cf *ConvFile) returnSignature(sig *types.Signature, qf types.Qualifier, se
 	sb.WriteString(cf.returnTuple(sig.Params(), sig.Variadic(), qf, true))
 	sb.WriteString(")")
 
-	sb.WriteString(" -> ")
+	if cf.Conv.Typed {
+		sb.WriteString(" -> ")
 
-	n := sig.Results().Len()
-	if n == 0 {
-		sb.WriteString("None")
-		// no result
-		return sb.String()
-	}
+		n := sig.Results().Len()
+		if n == 0 {
+			sb.WriteString("None")
+			// no result
+			return sb.String()
+		}
 
-	// multiple or named result(s)
-	if n > 1 {
-		sb.WriteString("Tuple[")
-	}
-	sb.WriteString(cf.returnTuple(sig.Results(), false, qf, false))
-	if n > 1 {
-		sb.WriteString("]")
+		// multiple or named result(s)
+		if n > 1 {
+			sb.WriteString("Tuple[")
+		}
+		sb.WriteString(cf.returnTuple(sig.Results(), false, qf, false))
+		if n > 1 {
+			sb.WriteString("]")
+		}
 	}
 	return sb.String()
 }
 
 func (cf *ConvFile) returnSignatureType(sig *types.Signature, qf types.Qualifier) string {
+	if !cf.Conv.Typed {
+		return ""
+	}
+
 	var sb strings.Builder
 
 	sb.WriteString("Callable[[")
@@ -252,32 +264,40 @@ func (cf *ConvFile) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifie
 				} else {
 					sb.WriteString(fmt.Sprintf("p%d", i))
 				}
-				sb.WriteString(": ")
-			}
-			typ := v.Type()
-			if variadic && i == t.Len()-1 {
-				if s, ok := typ.(*types.Slice); ok {
-					//gf.Append("*")
-					typ = s.Elem()
-				} else {
-					panic(fmt.Sprintf("Unuspported variadic type: %T", typ))
-					//// special case:
-					//// append(s, "foo"...) leads to signature func([]byte, string...)
-					//if t, ok := typ.Underlying().(*types.Basic); !ok || t.Kind() != types.String {
-					//	panic("internal error: string type expected")
-					//}
-					//gf.Append("**")
-					//gf.Append(c.typeName(typ, qf, false))
-					//continue
+				if cf.Conv.Typed {
+					sb.WriteString(": ")
 				}
 			}
-			sb.WriteString(cf.typeName(typ, qf, false, false))
+			if cf.Conv.Typed {
+				typ := v.Type()
+				if variadic && i == t.Len()-1 {
+					if s, ok := typ.(*types.Slice); ok {
+						//gf.Append("*")
+						typ = s.Elem()
+					} else {
+						panic(fmt.Sprintf("Unuspported variadic type: %T", typ))
+						//// special case:
+						//// append(s, "foo"...) leads to signature func([]byte, string...)
+						//if t, ok := typ.Underlying().(*types.Basic); !ok || t.Kind() != types.String {
+						//	panic("internal error: string type expected")
+						//}
+						//gf.Append("**")
+						//gf.Append(c.typeName(typ, qf, false))
+						//continue
+					}
+				}
+				sb.WriteString(cf.typeName(typ, qf, false, false))
+			}
 		}
 	}
 	return sb.String()
 }
 
 func (cf *ConvFile) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeDecl bool) string {
+	//if !cf.Conv.Typed {
+	//	return "Any"
+	//}
+
 	var tb strings.Builder
 
 	switch t := typ.(type) {

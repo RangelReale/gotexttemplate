@@ -18,7 +18,7 @@ func main() {
 
 	fmt.Printf("Output path: %s...\n", outputPath)
 
-	conv, err := NewConv()
+	conv, err := NewConv(true)
 	if err != nil {
 		panic(err)
 	}

@@ -12,11 +12,13 @@ import (
 type Conv struct {
 	FileSet  *token.FileSet
 	Packages []*packages.Package
+	Typed bool
 }
 
-func NewConv() (*Conv, error) {
+func NewConv(typed bool) (*Conv, error) {
 	ret := &Conv{
 		FileSet: token.NewFileSet(),
+		Typed: typed,
 	}
 
 	err := ret.initialize()

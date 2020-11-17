@@ -13,7 +13,7 @@ from . import goext
 
 
 # c:\go\src\text\template\parse\lex.go:37:6
-class itemType(Enum):
+class itemType:
     itemError = 0  # error occurred; value is text of error
     itemBool = 1  # boolean constant
     itemChar = 2  # printable ASCII character; grab bag for comma etc.
@@ -49,7 +49,7 @@ class itemType(Enum):
 
 
 # c:\go\src\text\template\parse\node.go:36:6
-class NodeType(Enum):
+class NodeType:
     NodeText = 0  # Plain text.
     NodeAction = 1  # A non-control action such as a field evaluation.
     NodeBool = 2  # A boolean constant.
@@ -71,6 +71,10 @@ class NodeType(Enum):
     NodeVariable = 18  # A $ variable.
     NodeWith = 19  # A with action.
 
+    # c:\go\src\text\template\parse\node.go:48:19
+    def Type(self) -> 'NodeType':
+        pass
+
 
 #
 # CONSTS
@@ -78,39 +82,39 @@ class NodeType(Enum):
 
 
 # c:\go\src\text\template\parse\lex.go:88:7
-eof = -1
+eof: int = -1
 
 
 # c:\go\src\text\template\parse\lex.go:240:2
-leftComment = "/*"
+leftComment: str = "/*"
 
 
 # c:\go\src\text\template\parse\lex.go:238:2
-leftDelim = "{{"
+leftDelim: str = "{{"
 
 
 # c:\go\src\text\template\parse\lex.go:100:2
-leftTrimMarker = "- "  # Attached to left delimiter, trims trailing spaces from preceding text.
+leftTrimMarker: str = "- "  # Attached to left delimiter, trims trailing spaces from preceding text.
 
 
 # c:\go\src\text\template\parse\lex.go:241:2
-rightComment = "*/"
+rightComment: str = "*/"
 
 
 # c:\go\src\text\template\parse\lex.go:239:2
-rightDelim = "}}"
+rightDelim: str = "}}"
 
 
 # c:\go\src\text\template\parse\lex.go:101:2
-rightTrimMarker = " -"  # Attached to right delimiter, trims leading spaces from following text.
+rightTrimMarker: str = " -"  # Attached to right delimiter, trims leading spaces from following text.
 
 
 # c:\go\src\text\template\parse\lex.go:99:2
-spaceChars = " \t\r\n"  # These are the space characters defined by Go itself.
+spaceChars: str = " \t\r\n"  # These are the space characters defined by Go itself.
 
 
 # c:\go\src\text\template\parse\lex.go:102:2
-trimMarkerLen = 2
+trimMarkerLen: 'Pos' = 2
 
 #
 # TYPES
@@ -170,7 +174,7 @@ class Pos:
 
 
 # c:\go\src\text\template\parse\node.go:222:6
-class ActionNode(Node, Pos):
+class ActionNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     Pipe: Optional['PipeNode']  # The pipeline in the action.
@@ -193,7 +197,7 @@ class ActionNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:547:6
-class BoolNode(Node, Pos):
+class BoolNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     True_: bool  # The value of the boolean constant.
 
@@ -215,7 +219,7 @@ class BoolNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:806:6
-class BranchNode(Node, Pos):
+class BranchNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     Pipe: Optional['PipeNode']  # The pipeline to be evaluated.
@@ -240,7 +244,7 @@ class BranchNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:494:6
-class ChainNode(Node, Pos):
+class ChainNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Node: 'Node'
     Field: Optional[List[str]]  # The identifiers in lexical order.
@@ -267,7 +271,7 @@ class ChainNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:256:6
-class CommandNode(Node, Pos):
+class CommandNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Args: Optional[List['Node']]  # Arguments in lexical order: Identifier, field, or constant.
 
@@ -293,7 +297,7 @@ class CommandNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:389:6
-class DotNode(Node, Pos):
+class DotNode(Node, NodeType, Pos):
     tr: Optional['Tree']
 
     # c:\go\src\text\template\parse\node.go:399:19
@@ -318,7 +322,7 @@ class DotNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:459:6
-class FieldNode(Node, Pos):
+class FieldNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Ident: Optional[List[str]]  # The identifiers in lexical order.
 
@@ -340,7 +344,7 @@ class FieldNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:308:6
-class IdentifierNode(Node, Pos):
+class IdentifierNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Ident: str  # The identifier's name.
 
@@ -378,7 +382,7 @@ class IfNode(BranchNode):
 
 
 # c:\go\src\text\template\parse\node.go:78:6
-class ListNode(Node, Pos):
+class ListNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Nodes: Optional[List['Node']]  # The element nodes in lexical order.
 
@@ -408,7 +412,7 @@ class ListNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:423:6
-class NilNode(Node, Pos):
+class NilNode(Node, NodeType, Pos):
     tr: Optional['Tree']
 
     # c:\go\src\text\template\parse\node.go:433:19
@@ -432,16 +436,8 @@ class NilNode(Node, Pos):
         pass
 
 
-# c:\go\src\text\template\parse\node.go:36:6
-class NodeType:
-
-    # c:\go\src\text\template\parse\node.go:48:19
-    def Type(self) -> 'NodeType':
-        pass
-
-
 # c:\go\src\text\template\parse\node.go:580:6
-class NumberNode(Node, Pos):
+class NumberNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     IsInt: bool  # Number has an integral value.
     IsUint: bool  # Number has an unsigned integral value.
@@ -475,7 +471,7 @@ class NumberNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:153:6
-class PipeNode(Node, Pos):
+class PipeNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     IsAssign: bool  # The variables are being assigned, not declared.
@@ -516,7 +512,7 @@ class RangeNode(BranchNode):
 
 
 # c:\go\src\text\template\parse\node.go:717:6
-class StringNode(Node, Pos):
+class StringNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Quoted: str  # The original text of the string, with quotes.
     Text: str  # The string, after quote processing.
@@ -539,7 +535,7 @@ class StringNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:904:6
-class TemplateNode(Node, Pos):
+class TemplateNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
     Name: str  # The name of the template (unquoted).
@@ -563,7 +559,7 @@ class TemplateNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:125:6
-class TextNode(Node, Pos):
+class TextNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Text: Optional[List[int]]  # The text; may span newlines.
 
@@ -839,7 +835,7 @@ class Tree:
 
 
 # c:\go\src\text\template\parse\node.go:354:6
-class VariableNode(Node, Pos):
+class VariableNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Ident: Optional[List[str]]  # Variable name and fields in lexical order.
 
@@ -869,7 +865,7 @@ class WithNode(BranchNode):
 
 
 # c:\go\src\text\template\parse\node.go:774:6
-class elseNode(Node, Pos):
+class elseNode(Node, NodeType, Pos):
     tr: Optional['Tree']
     Line: int  # The line number in the input. Deprecated: Kept for compatibility.
 
@@ -895,7 +891,7 @@ class elseNode(Node, Pos):
 
 
 # c:\go\src\text\template\parse\node.go:747:6
-class endNode(Node, Pos):
+class endNode(Node, NodeType, Pos):
     tr: Optional['Tree']
 
     # c:\go\src\text\template\parse\node.go:757:19

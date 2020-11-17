@@ -12,8 +12,8 @@ import (
 type ConvFile struct {
 	Conv *Conv
 	Package *packages.Package
-	gf *GenFile
 
+	gf *GenFile
 	consts []*types.Const
 	funcs []*types.Func
 	vars []*types.Var
@@ -98,7 +98,8 @@ func (cf *ConvFile) Output(out io.Writer) error {
 		for _, v := range cf.closedTypes {
 			switch v := v.(type) {
 			case *closed.Enum:
-				cf.outputEnum(gf, v)
+				gf.NL()
+				cf.outputEnum(gf, v, qual)
 				gf.NL()
 			}
 		}
@@ -139,6 +140,9 @@ func (cf *ConvFile) Output(out io.Writer) error {
 		gf.Line("#")
 		gf.NL()
 		for _, s := range cf.interfaces {
+			if cf.typeIsEnum(s) {
+				continue
+			}
 			gf.NL()
 			cf.outputClass(gf, s, qual)
 			gf.NL()
@@ -151,6 +155,9 @@ func (cf *ConvFile) Output(out io.Writer) error {
 		gf.Line("#")
 		gf.NL()
 		for _, s := range cf.Conv.sortStructs(cf.Package, cf.structs) {
+			if cf.typeIsEnum(s) {
+				continue
+			}
 			gf.NL()
 			cf.outputClass(gf, s, qual)
 			gf.NL()
