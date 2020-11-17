@@ -7,6 +7,7 @@ import (
 	"go/types"
 	"strings"
 
+	"golang.org/x/tools/go/ast/astutil"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/types/typeutil"
 )
@@ -133,9 +134,12 @@ func (c *Conv) FileOf(poser Poser) *ast.File {
 }
 
 func (c *Conv) ReturnLineComment(typeObj types.Object) string {
-	fast := c.AstOf(typeObj)
-	if fast != nil {
+	for _, fast := range c.AstOf(typeObj) {
 		switch xfast := fast.(type) {
+		case *ast.ImportSpec:
+			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
+				return fmt.Sprintf("  # %s", strings.TrimSpace(xfast.Comment.Text()))
+			}
 		case *ast.Field:
 			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
 				return fmt.Sprintf("  # %s", strings.TrimSpace(xfast.Comment.Text()))
@@ -154,22 +158,7 @@ func (c *Conv) ReturnLineComment(typeObj types.Object) string {
 	return ""
 }
 
-func (c *Conv) AstOf(typeObj types.Object) (typeAst ast.Node) {
-	ast.Inspect(c.FileOf(typeObj), func(node ast.Node) bool {
-		if node == nil {
-			return true
-		}
-
-		switch node.(type) {
-		case *ast.File:
-			// ignore
-		default:
-			if node.Pos() == typeObj.Pos() {
-				typeAst = node
-				return false
-			}
-		}
-		return true
-	})
-	return
+func (c *Conv) AstOf(typeObj types.Object) []ast.Node {
+	r, _ := astutil.PathEnclosingInterval(c.FileOf(typeObj), typeObj.Pos(), typeObj.Pos())
+	return r
 }

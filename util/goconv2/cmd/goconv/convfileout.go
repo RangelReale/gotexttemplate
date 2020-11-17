@@ -164,11 +164,7 @@ func (cf *ConvFile) outputFunc(gf *GenFile, s *types.Func, qf types.Qualifier, s
 	cf.outputFuncSig(gf, s, qf, self)
 
 	gf.I()
-	if self {
-		gf.Line("pass")
-	} else {
-		cf.outputBody(gf, s, qf)
-	}
+	cf.outputBody(gf, s, qf)
 	gf.D()
 }
 
@@ -183,20 +179,28 @@ func (cf *ConvFile) outputFuncSig(gf *GenFile, s *types.Func, qf types.Qualifier
 }
 
 func (cf *ConvFile) outputBody(gf *GenFile, s *types.Func, qf types.Qualifier) {
-	gf.Line("pass")
-	return
+	if !cf.Conv.Source {
+		gf.Line("pass")
+		return
+	}
 
 	var fdecl *ast.FuncDecl
 
-	fast := cf.Conv.AstOf(s)
-	if fast != nil {
-		switch xfast := fast.(type) {
-		case *ast.FuncDecl:
-			fdecl = xfast
-		case *ast.Ident:
-			switch xobjast := xfast.Obj.Decl.(type) {
+	EndLoop:
+	for _, fast := range cf.Conv.AstOf(s) {
+		if fast != nil {
+			switch xfast := fast.(type) {
 			case *ast.FuncDecl:
-				fdecl = xobjast
+				fdecl = xfast
+				break EndLoop
+			case *ast.Ident:
+				if xfast.Obj != nil {
+					switch xobjast := xfast.Obj.Decl.(type) {
+					case *ast.FuncDecl:
+						fdecl = xobjast
+						break EndLoop
+					}
+				}
 			}
 		}
 	}
@@ -214,6 +218,8 @@ func (cf *ConvFile) outputBody(gf *GenFile, s *types.Func, qf types.Qualifier) {
 			gf.Append("# ")
 			gf.Line(sline)
 		}
+	} else {
+		gf.Line("# Function body not found")
 	}
 	gf.Line("pass")
 }

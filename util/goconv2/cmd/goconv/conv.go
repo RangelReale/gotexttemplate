@@ -13,12 +13,14 @@ type Conv struct {
 	FileSet  *token.FileSet
 	Packages []*packages.Package
 	Typed bool
+	Source bool
 }
 
 func NewConv(typed bool) (*Conv, error) {
 	ret := &Conv{
 		FileSet: token.NewFileSet(),
 		Typed: typed,
+		Source: true,
 	}
 
 	err := ret.initialize()
