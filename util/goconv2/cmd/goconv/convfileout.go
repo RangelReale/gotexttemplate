@@ -222,7 +222,7 @@ func (cf *ConvFile) outputBody(gf *GenFile, s *types.Func, qf types.Qualifier) {
 
 		xcompiler := compiler.NewXCompiler(cf.Package.TypesInfo, cf.Conv.FileSet, false)
 		var xsb strings.Builder
-		xcfunc := xcompiler.CompileFuncDecl(fdecl)
+		xcfunc := xcompiler.CompileFuncDecl(fdecl, false)
 
 		pyWriter := pythonast.NewWriter(&xsb)
 		pyWriter.WriteStmts(xcfunc.Def.Body)
