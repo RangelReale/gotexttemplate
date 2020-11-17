@@ -7,6 +7,8 @@ import (
 	"go/types"
 	"strings"
 
+	"github.com/RangelReale/gotopython/compiler"
+	"github.com/RangelReale/gotopython/pythonast"
 	"github.com/jimmyfrasche/closed"
 )
 
@@ -205,23 +207,44 @@ func (cf *ConvFile) outputBody(gf *GenFile, s *types.Func, qf types.Qualifier) {
 		}
 	}
 
+	bodylines := 0
 	if fdecl != nil {
+		gf.MultiLine(cf.Conv.ReturnComments(fdecl.Doc, true))
+
 		var fsb strings.Builder
 		printer.Fprint(&fsb, cf.Conv.FileSet, fdecl.Body)
 		//ast.Fprint(&fsb, cf.Conv.FileSet, fdecl, nil)
-		if fsb.String() == "" {
-			gf.Line("pass")
-			return
-		}
 		for _, sline := range strings.Split(fsb.String(), "\n") {
 			gf.StartLine()
 			gf.Append("# ")
 			gf.Line(sline)
+			//bodylines++
 		}
+
+		xcompiler := compiler.NewXCompiler(cf.Package.TypesInfo, cf.Conv.FileSet, false)
+		var xsb strings.Builder
+		xcfunc := xcompiler.CompileFuncDecl(fdecl)
+
+		pyWriter := pythonast.NewWriter(&xsb)
+		pyWriter.WriteStmts(xcfunc.Def.Body)
+
+		if xsb.String() != "" {
+			gf.Line("# ############# CODE GENERATION #############")
+		}
+
+		for _, sline := range strings.Split(xsb.String(), "\n") {
+			gf.StartLine()
+			gf.Append("# ")
+			gf.Line(sline)
+			//bodylines++
+		}
+
 	} else {
 		gf.Line("# Function body not found")
 	}
-	gf.Line("pass")
+	if bodylines == 0 {
+		gf.Line("pass")
+	}
 }
 
 func (cf *ConvFile) returnSignature(sig *types.Signature, qf types.Qualifier, self bool) string {

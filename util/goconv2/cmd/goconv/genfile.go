@@ -34,6 +34,18 @@ func (g *GenFile) Line(format string, args ...interface{}) {
 	g.Append("\n")
 }
 
+func (g *GenFile) MultiLine(format string, args ...interface{}) {
+	if format == "" {
+		return
+	}
+
+	for _, sline := range strings.Split(fmt.Sprintf(format, args...), "\n") {
+		g.StartLine()
+		g.Append(sline)
+		g.Append("\n")
+	}
+}
+
 func (g *GenFile) NL() {
 	g.Append("\n")
 }

@@ -137,24 +137,45 @@ func (c *Conv) ReturnLineComment(typeObj types.Object) string {
 	for _, fast := range c.AstOf(typeObj) {
 		switch xfast := fast.(type) {
 		case *ast.ImportSpec:
-			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
-				return fmt.Sprintf("  # %s", strings.TrimSpace(xfast.Comment.Text()))
-			}
+			return c.ReturnComments(xfast.Comment, false)
 		case *ast.Field:
-			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
-				return fmt.Sprintf("  # %s", strings.TrimSpace(xfast.Comment.Text()))
-			}
+			return c.ReturnComments(xfast.Comment, false)
 		case *ast.ValueSpec:
-			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
-				return fmt.Sprintf("  # %s", strings.TrimSpace(xfast.Comment.Text()))
-			}
+			return c.ReturnComments(xfast.Comment, false)
 		case *ast.TypeSpec:
-			if xfast.Comment != nil && len(xfast.Comment.List) > 0 {
-				return fmt.Sprintf("  # %s", strings.TrimSpace(xfast.Comment.Text()))
-			}
+			return c.ReturnComments(xfast.Comment, false)
 		}
 	}
 
+	return ""
+}
+
+func (c *Conv) ReturnComments(comment *ast.CommentGroup, multiline bool) string {
+	if comment != nil && len(comment.List) > 0 {
+		var cb strings.Builder
+		if multiline {
+			cb.WriteString("\"\"\"\n")
+		}
+		for slinect, sline := range strings.Split(comment.Text(), "\n") {
+			if multiline {
+				if slinect > 0 {
+					cb.WriteString("\n")
+				}
+				//cb.WriteString("# ")
+			} else {
+				if slinect == 0 {
+					cb.WriteString("  # ")
+				} else {
+					cb.WriteString(" ")
+				}
+			}
+			cb.WriteString(sline)
+		}
+		if multiline {
+			cb.WriteString("\"\"\"")
+		}
+		return cb.String()
+	}
 	return ""
 }
 
