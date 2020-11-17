@@ -94,6 +94,14 @@ func (c *Conv) sortStructs(pkg *packages.Package, ts []*types.TypeName) (structs
 				structs = append(structs, t)
 			}
 		}
+	case "text/template/parse":
+		for _, t := range ts {
+			if t.Name() == "Pos" {
+				structs = append([]*types.TypeName{t}, structs...) // prepend
+			} else {
+				structs = append(structs, t)
+			}
+		}
 	default:
 		return ts
 	}

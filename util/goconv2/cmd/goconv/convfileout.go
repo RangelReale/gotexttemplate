@@ -43,6 +43,13 @@ func (cf *ConvFile) outputConst(gf *GenFile, s *types.Const, qf types.Qualifier)
 }
 
 func (cf *ConvFile) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
+	// check if type is already in structs
+	for _, st := range cf.structs {
+		if s == st {
+			return
+		}
+	}
+
 	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
 
 	typ := s.Type()
