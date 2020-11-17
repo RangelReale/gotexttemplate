@@ -24,8 +24,13 @@ func main() {
 	}
 
 	for _, pv := range conv.Packages {
-		filename := filepath.Join(outputPath, conv.Filename(pv))
-		err = conv.OutputFile(pv, filename)
+		cf, err := conv.File(pv)
+		if err != nil {
+			panic(err)
+		}
+
+		filename := filepath.Join(outputPath, cf.Filename())
+		err = cf.OutputFile(filename)
 		if err != nil {
 			panic(err)
 		}

@@ -3,13 +3,10 @@ package main
 import (
 	"fmt"
 	"github.com/hashicorp/go-multierror"
-	"github.com/jimmyfrasche/closed"
 	"go/token"
 	"go/types"
 	"golang.org/x/tools/go/packages"
 	"golang.org/x/tools/go/types/typeutil"
-	"io"
-	"os"
 	"strings"
 )
 
@@ -52,139 +49,139 @@ func (c *Conv) Filename(pkg *packages.Package) string {
 	return fmt.Sprintf("%s.py", c.BaseFilename(pkg))
 }
 
-func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
-	if pkg.Types != nil {
-		qual := types.RelativeTo(pkg.Types)
+//func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
+//	if pkg.Types != nil {
+//		qual := types.RelativeTo(pkg.Types)
+//
+//		gf := NewGenFile()
+//
+//		gf.Line("# type: ignore")
+//		gf.Line("# package: %s", pkg.PkgPath)
+//		gf.NL()
+//
+//		gf.Line("from enum import Enum")
+//		gf.Line("from typing import Callable, Optional, List, Dict, Any, Tuple")
+//		gf.Line("import queue")
+//		gf.Line("from . import goext")
+//
+//		for _, pi := range pkg.Imports {
+//			for _, pc := range c.Packages {
+//				if pc == pkg {
+//					continue
+//				}
+//				if pi == pc {
+//					gf.Line("from . import %s", c.BaseFilename(pi))
+//				}
+//			}
+//		}
+//
+//		gf.NL()
+//
+//		consts, funcs, _, allTypes := c.extract(pkg.Types.Scope())
+//		typs := c.findTypes(allTypes)
+//		structs := c.findStructs(allTypes)
+//		interfaces := c.findInterfaces(allTypes)
+//
+//		ct, err := closed.InPackage(c.FileSet, pkg.Syntax, pkg.Types)
+//		if err != nil {
+//			panic(err)
+//		}
+//
+//		// Enums
+//		gf.NL()
+//		gf.Line("#")
+//		gf.Line("# ENUMS")
+//		gf.Line("#")
+//		gf.NL()
+//		for _, v := range ct {
+//			switch v := v.(type) {
+//			case *closed.Enum:
+//				c.outputEnum(gf, v)
+//				gf.NL()
+//			}
+//		}
+//
+//		// Consts
+//		gf.NL()
+//		gf.Line("#")
+//		gf.Line("# CONSTS")
+//		gf.Line("#")
+//		gf.NL()
+//		for _, s := range consts {
+//			if c.typeIsEnum(s, ct) {
+//				continue
+//			}
+//			gf.NL()
+//			c.outputConst(gf, s, qual)
+//			gf.NL()
+//		}
+//
+//		// Types
+//		gf.Line("#")
+//		gf.Line("# TYPES")
+//		gf.Line("#")
+//		gf.NL()
+//		for _, s := range typs {
+//			if c.typeIsEnum(s, ct) {
+//				continue
+//			}
+//			gf.NL()
+//			c.outputTypes(gf, s, qual)
+//			gf.NL()
+//		}
+//
+//		// Interfaces
+//		gf.NL()
+//		gf.Line("#")
+//		gf.Line("# INTERFACES")
+//		gf.Line("#")
+//		gf.NL()
+//		for _, s := range interfaces {
+//			gf.NL()
+//			c.outputClass(gf, s, qual, ct)
+//			gf.NL()
+//		}
+//
+//		// Structs
+//		gf.NL()
+//		gf.Line("#")
+//		gf.Line("# STRUCTS")
+//		gf.Line("#")
+//		gf.NL()
+//		for _, s := range c.sortStructs(pkg, structs) {
+//			gf.NL()
+//			c.outputClass(gf, s, qual, ct)
+//			gf.NL()
+//		}
+//
+//		// Funcs
+//		gf.NL()
+//		gf.Line("#")
+//		gf.Line("# FUNCS")
+//		gf.Line("#")
+//		gf.NL()
+//		for _, s := range funcs {
+//			gf.NL()
+//			c.outputFunc(gf, s, qual, false)
+//			gf.NL()
+//		}
+//
+//		return gf.Output(out)
+//	}
+//	return nil
+//}
 
-		gf := NewGenFile()
-
-		gf.Line("# type: ignore")
-		gf.Line("# package: %s", pkg.PkgPath)
-		gf.NL()
-
-		gf.Line("from enum import Enum")
-		gf.Line("from typing import Callable, Optional, List, Dict, Any, Tuple")
-		gf.Line("import queue")
-		gf.Line("from . import goext")
-
-		for _, pi := range pkg.Imports {
-			for _, pc := range c.Packages {
-				if pc == pkg {
-					continue
-				}
-				if pi == pc {
-					gf.Line("from . import %s", c.BaseFilename(pi))
-				}
-			}
-		}
-
-		gf.NL()
-
-		consts, funcs, _, allTypes := c.extract(pkg.Types.Scope())
-		typs := c.findTypes(allTypes)
-		structs := c.findStructs(allTypes)
-		interfaces := c.findInterfaces(allTypes)
-
-		ct, err := closed.InPackage(c.FileSet, pkg.Syntax, pkg.Types)
-		if err != nil {
-			panic(err)
-		}
-
-		// Enums
-		gf.NL()
-		gf.Line("#")
-		gf.Line("# ENUMS")
-		gf.Line("#")
-		gf.NL()
-		for _, v := range ct {
-			switch v := v.(type) {
-			case *closed.Enum:
-				c.outputEnum(gf, v)
-				gf.NL()
-			}
-		}
-
-		// Consts
-		gf.NL()
-		gf.Line("#")
-		gf.Line("# CONSTS")
-		gf.Line("#")
-		gf.NL()
-		for _, s := range consts {
-			if c.typeIsEnum(s, ct) {
-				continue
-			}
-			gf.NL()
-			c.outputConst(gf, s, qual)
-			gf.NL()
-		}
-
-		// Types
-		gf.Line("#")
-		gf.Line("# TYPES")
-		gf.Line("#")
-		gf.NL()
-		for _, s := range typs {
-			if c.typeIsEnum(s, ct) {
-				continue
-			}
-			gf.NL()
-			c.outputTypes(gf, s, qual)
-			gf.NL()
-		}
-
-		// Interfaces
-		gf.NL()
-		gf.Line("#")
-		gf.Line("# INTERFACES")
-		gf.Line("#")
-		gf.NL()
-		for _, s := range interfaces {
-			gf.NL()
-			c.outputClass(gf, s, qual, ct)
-			gf.NL()
-		}
-
-		// Structs
-		gf.NL()
-		gf.Line("#")
-		gf.Line("# STRUCTS")
-		gf.Line("#")
-		gf.NL()
-		for _, s := range c.sortStructs(pkg, structs) {
-			gf.NL()
-			c.outputClass(gf, s, qual, ct)
-			gf.NL()
-		}
-
-		// Funcs
-		gf.NL()
-		gf.Line("#")
-		gf.Line("# FUNCS")
-		gf.Line("#")
-		gf.NL()
-		for _, s := range funcs {
-			gf.NL()
-			c.outputFunc(gf, s, qual, false)
-			gf.NL()
-		}
-
-		return gf.Output(out)
-	}
-	return nil
-}
-
-func (c *Conv) OutputFile(pkg *packages.Package, filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	if err = c.Output(pkg, f); err != nil {
-		_ = f.Close()
-		return err
-	}
-	return f.Close()
-}
+//func (c *Conv) OutputFile(pkg *packages.Package, filename string) error {
+//	f, err := os.Create(filename)
+//	if err != nil {
+//		return err
+//	}
+//	if err = c.Output(pkg, f); err != nil {
+//		_ = f.Close()
+//		return err
+//	}
+//	return f.Close()
+//}
 
 func (c *Conv) checkPackageErrors(pkgs []*packages.Package) error {
 	var errorList error
@@ -194,6 +191,10 @@ func (c *Conv) checkPackageErrors(pkgs []*packages.Package) error {
 		}
 	})
 	return errorList
+}
+
+func (c *Conv) File(pkg *packages.Package) (*ConvFile, error) {
+	return NewConvFile(c, pkg)
 }
 
 //extract what we care about from scope.

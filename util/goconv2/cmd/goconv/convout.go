@@ -7,9 +7,9 @@ import (
 	"strings"
 )
 
-func (c *Conv) outputEnum(gf *GenFile, enum *closed.Enum) {
+func (cf *ConvFile) outputEnum(gf *GenFile, enum *closed.Enum) {
 	gf.NL()
-	gf.Line("# %s", c.FileSet.Position(enum.Types()[0].Pos()))
+	gf.Line("# %s", cf.Conv.FileSet.Position(enum.Types()[0].Pos()))
 	gf.Line("class %s(Enum):", enum.Types()[0].Name())
 	gf.I()
 
@@ -22,7 +22,7 @@ func (c *Conv) outputEnum(gf *GenFile, enum *closed.Enum) {
 		valueAmount++
 		gf.StartLine()
 		gf.Append(labels(lbl))
-		gf.Append(c.ReturnLineComment(lbl[0]))
+		gf.Append(cf.Conv.ReturnLineComment(lbl[0]))
 		gf.NL()
 	}
 
@@ -32,17 +32,17 @@ func (c *Conv) outputEnum(gf *GenFile, enum *closed.Enum) {
 	gf.D()
 }
 
-func (c *Conv) outputConst(gf *GenFile, s *types.Const, qf types.Qualifier) {
-	gf.Line("# %s", c.FileSet.Position(s.Pos()))
+func (cf *ConvFile) outputConst(gf *GenFile, s *types.Const, qf types.Qualifier) {
+	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
 
 	gf.Append("%s", s.Name())
 	gf.Append(" = %s", s.Val().String())
-	gf.Append(c.ReturnLineComment(s))
+	gf.Append(cf.Conv.ReturnLineComment(s))
 	gf.NL()
 }
 
-func (c *Conv) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
-	gf.Line("# %s", c.FileSet.Position(s.Pos()))
+func (cf *ConvFile) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
+	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
 
 	typ := s.Type()
 
@@ -52,18 +52,18 @@ func (c *Conv) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 	if !s.IsAlias() {
 		typ = typ.Underlying()
 	}
-	gf.Append(c.typeName(typ, qf, false, false))
+	gf.Append(cf.typeName(typ, qf, false, false))
 	gf.NL()
 }
 
-func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, closedTypes []closed.Type) {
-	gf.Line("# %s", c.FileSet.Position(s.Pos()))
+func (cf *ConvFile) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
+	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
 
-	basetypes := c.baseTypesFiltered(s, closedTypes)
+	basetypes := cf.baseTypesFiltered(s, cf.closedTypes)
 	baseclasses := []string{}
 
 	for _, bt := range basetypes {
-		btn := c.typeName(bt, qf, false, true)
+		btn := cf.typeName(bt, qf, false, true)
 		if s.Pkg().Path() == "text/template/parse" && btn == "NodeType" {
 			continue
 		}
@@ -77,7 +77,7 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, c
 
 	gf.StartLine()
 	gf.Append("class %s%s:", s.Name(), base)
-	gf.Append(c.ReturnLineComment(s))
+	gf.Append(cf.Conv.ReturnLineComment(s))
 	gf.NL()
 
 	gf.I()
@@ -95,9 +95,9 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, c
 					continue
 				}
 				gf.StartLine()
-				gf.Append("%s: ", c.pythonIdent(f.Name()))
-				gf.Append(c.typeName(f.Type(), qf, true, false))
-				gf.Append(c.ReturnLineComment(f))
+				gf.Append("%s: ", cf.pythonIdent(f.Name()))
+				gf.Append(cf.typeName(f.Type(), qf, true, false))
+				gf.Append(cf.Conv.ReturnLineComment(f))
 				gf.NL()
 
 				fieldAmount++
@@ -120,7 +120,7 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, c
 				//}
 
 				f := st.ExplicitMethod(i)
-				c.outputFunc(gf, f, qf, true)
+				cf.outputFunc(gf, f, qf, true)
 				fieldAmount++
 			}
 		default:
@@ -132,7 +132,7 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, c
 				//}
 
 				f := sx.Method(i)
-				c.outputFunc(gf, f, qf, true)
+				cf.outputFunc(gf, f, qf, true)
 				fieldAmount++
 			}
 		}
@@ -144,25 +144,25 @@ func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, c
 	gf.D()
 }
 
-func (c *Conv) outputFunc(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
-	c.outputFuncSig(gf, s, qf, self)
+func (cf *ConvFile) outputFunc(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
+	cf.outputFuncSig(gf, s, qf, self)
 
 	gf.I()
 	gf.Line("pass")
 	gf.D()
 }
 
-func (c *Conv) outputFuncSig(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
-	gf.Line("# %s", c.FileSet.Position(s.Pos()))
+func (cf *ConvFile) outputFuncSig(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
+	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
 	gf.StartLine()
-	gf.Append("def %s", c.pythonIdent(s.Name()))
-	gf.Append(c.returnSignature(s.Type().(*types.Signature), qf, self))
+	gf.Append("def %s", cf.pythonIdent(s.Name()))
+	gf.Append(cf.returnSignature(s.Type().(*types.Signature), qf, self))
 	gf.Append(":")
-	gf.Append(c.ReturnLineComment(s))
+	gf.Append(cf.Conv.ReturnLineComment(s))
 	gf.NL()
 }
 
-func (c *Conv) returnSignature(sig *types.Signature, qf types.Qualifier, self bool) string {
+func (cf *ConvFile) returnSignature(sig *types.Signature, qf types.Qualifier, self bool) string {
 	var sb strings.Builder
 
 	sb.WriteString("(")
@@ -173,7 +173,7 @@ func (c *Conv) returnSignature(sig *types.Signature, qf types.Qualifier, self bo
 		}
 	}
 
-	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf, true))
+	sb.WriteString(cf.returnTuple(sig.Params(), sig.Variadic(), qf, true))
 	sb.WriteString(")")
 
 	sb.WriteString(" -> ")
@@ -189,18 +189,18 @@ func (c *Conv) returnSignature(sig *types.Signature, qf types.Qualifier, self bo
 	if n > 1 {
 		sb.WriteString("Tuple[")
 	}
-	sb.WriteString(c.returnTuple(sig.Results(), false, qf, false))
+	sb.WriteString(cf.returnTuple(sig.Results(), false, qf, false))
 	if n > 1 {
 		sb.WriteString("]")
 	}
 	return sb.String()
 }
 
-func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) string {
+func (cf *ConvFile) returnSignatureType(sig *types.Signature, qf types.Qualifier) string {
 	var sb strings.Builder
 
 	sb.WriteString("Callable[[")
-	sb.WriteString(c.returnTuple(sig.Params(), sig.Variadic(), qf, false))
+	sb.WriteString(cf.returnTuple(sig.Params(), sig.Variadic(), qf, false))
 	sb.WriteString("], ")
 
 	n := sig.Results().Len()
@@ -213,7 +213,7 @@ func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) str
 		if n > 1 {
 			sb.WriteString("Tuple[")
 		}
-		sb.WriteString(c.returnTuple(sig.Results(), false, qf, false))
+		sb.WriteString(cf.returnTuple(sig.Results(), false, qf, false))
 		if n > 1 {
 			sb.WriteString("]")
 		}
@@ -224,7 +224,7 @@ func (c *Conv) returnSignatureType(sig *types.Signature, qf types.Qualifier) str
 	return sb.String()
 }
 
-func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier, named bool) string {
+func (cf *ConvFile) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier, named bool) string {
 	var sb strings.Builder
 
 	if t != nil {
@@ -240,7 +240,7 @@ func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier, na
 			}
 			if named {
 				if v.Name() != "" {
-					sb.WriteString(c.pythonIdent(v.Name()))
+					sb.WriteString(cf.pythonIdent(v.Name()))
 				} else {
 					sb.WriteString(fmt.Sprintf("p%d", i))
 				}
@@ -263,26 +263,26 @@ func (c *Conv) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifier, na
 					//continue
 				}
 			}
-			sb.WriteString(c.typeName(typ, qf, false, false))
+			sb.WriteString(cf.typeName(typ, qf, false, false))
 		}
 	}
 	return sb.String()
 }
 
-func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeDecl bool) string {
+func (cf *ConvFile) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeDecl bool) string {
 	var tb strings.Builder
 
 	switch t := typ.(type) {
 	case nil:
 		tb.WriteString("None")
 	case *types.Basic:
-		tb.WriteString(c.pythonType(t))
+		tb.WriteString(cf.pythonType(t))
 	case *types.Array:
 		if topLevel {
 			tb.WriteString("Optional[")
 		}
 		tb.WriteString("List[")
-		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
+		tb.WriteString(cf.typeName(t.Elem(), qf, false, typeDecl))
 		tb.WriteString("]")
 		if topLevel {
 			tb.WriteString("]")
@@ -292,7 +292,7 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeD
 			tb.WriteString("Optional[")
 		}
 		tb.WriteString("List[")
-		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
+		tb.WriteString(cf.typeName(t.Elem(), qf, false, typeDecl))
 		tb.WriteString("]")
 		if topLevel {
 			tb.WriteString("]")
@@ -303,14 +303,14 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeD
 		if !typeDecl {
 			tb.WriteString("Optional[")
 		}
-		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
+		tb.WriteString(cf.typeName(t.Elem(), qf, false, typeDecl))
 		if !typeDecl {
 			tb.WriteString("]")
 		}
 	case *types.Tuple:
 		panic("TODO")
 	case *types.Signature:
-		tb.WriteString(c.returnSignatureType(t, qf))
+		tb.WriteString(cf.returnSignatureType(t, qf))
 	case *types.Interface:
 		tb.WriteString("Any")
 	case *types.Map:
@@ -318,9 +318,9 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeD
 			tb.WriteString("Optional[")
 		}
 		tb.WriteString("Dict[")
-		tb.WriteString(c.typeName(t.Key(), qf, false, typeDecl))
+		tb.WriteString(cf.typeName(t.Key(), qf, false, typeDecl))
 		tb.WriteString(", ")
-		tb.WriteString(c.typeName(t.Elem(), qf, false, typeDecl))
+		tb.WriteString(cf.typeName(t.Elem(), qf, false, typeDecl))
 		tb.WriteString("]")
 		if topLevel {
 			tb.WriteString("]")
@@ -332,7 +332,7 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeD
 		pkg := ""
 		if xobj := t.Obj(); xobj != nil {
 			if xobj.Pkg() != nil {
-				pkg = c.returnPackage(xobj.Pkg(), qf)
+				pkg = cf.returnPackage(xobj.Pkg(), qf)
 				tb.WriteString(pkg)
 			}
 			//TODO(gri): function-local named types should be displayed
@@ -358,7 +358,7 @@ func (c *Conv) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeD
 	return tb.String()
 }
 
-func (c *Conv) returnPackage(pkg *types.Package, qf types.Qualifier) string {
+func (cf *ConvFile) returnPackage(pkg *types.Package, qf types.Qualifier) string {
 	if pkg == nil {
 		return ""
 	}
@@ -369,7 +369,7 @@ func (c *Conv) returnPackage(pkg *types.Package, qf types.Qualifier) string {
 		s = pkg.Path()
 	}
 	if s != "" {
-		if c.isExternalImport(pkg) {
+		if cf.Conv.isExternalImport(pkg) {
 			return fmt.Sprintf("goext.%s_", strings.Replace(s, "/", "_", -1))
 		} else {
 			return fmt.Sprintf("%s.", strings.Replace(s, "/", "_", -1))
@@ -378,7 +378,7 @@ func (c *Conv) returnPackage(pkg *types.Package, qf types.Qualifier) string {
 	return ""
 }
 
-func (c *Conv) pythonIdent(ident string) string {
+func (cf *ConvFile) pythonIdent(ident string) string {
 	switch ident {
 	case "True", "False", "in", "or", "not", "and":
 		return fmt.Sprintf("%s_", ident)
@@ -387,7 +387,7 @@ func (c *Conv) pythonIdent(ident string) string {
 	return ident
 }
 
-func (c *Conv) pythonType(ptype *types.Basic) string {
+func (cf *ConvFile) pythonType(ptype *types.Basic) string {
 	switch ptype.Kind() {
 	case types.UntypedBool, types.Bool:
 		return "bool"
