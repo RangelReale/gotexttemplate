@@ -27,6 +27,48 @@ func (c *Conv) baseTypes(typ types.Type) (basetypes []types.Type) {
 			basetypes = append(basetypes, f)
 		}
 	}
+
+	return
+}
+
+func (c *Conv) baseTypesFiltered(s *types.TypeName, closedTypes []closed.Type) (basetypes []types.Type) {
+	basetypes = c.baseTypes(s.Type())
+
+	itftypes := c.itfTypes(s, closedTypes)
+
+	for _, bt := range basetypes {
+		for ifi := len(itftypes) - 1; ifi >= 0; ifi-- {
+			if types.Implements(types.NewPointer(bt), itftypes[ifi].Underlying().(*types.Interface)) {
+				itftypes = append(itftypes[:ifi], itftypes[ifi+1:]...) // remove item
+			}
+		}
+	}
+
+	for _, ifi := range itftypes {
+		basetypes = append([]types.Type{ifi}, basetypes...)
+	}
+
+	return
+}
+
+
+func (c *Conv) itfTypes(t *types.TypeName, closedTypes []closed.Type) (itftypes []types.Type) {
+	for _, v := range closedTypes {
+		switch v := v.(type) {
+		case *closed.Interface:
+		EndLoop:
+			for _, cm := range v.Members {
+				for _, cmt := range cm.TypeName {
+					if t == cmt {
+						for _, ct := range v.Types() {
+							itftypes = append(itftypes, ct.Type())
+						}
+						break EndLoop
+					}
+				}
+			}
+		}
+	}
 	return
 }
 

@@ -59,48 +59,15 @@ func (c *Conv) outputTypes(gf *GenFile, s *types.TypeName, qf types.Qualifier) {
 func (c *Conv) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifier, closedTypes []closed.Type) {
 	gf.Line("# %s", c.FileSet.Position(s.Pos()))
 
-	basetypes := c.baseTypes(s.Type())
+	basetypes := c.baseTypesFiltered(s, closedTypes)
 	baseclasses := []string{}
 
-	//var itftypes []*types.Interface
-	var itftypes []types.Type
-
-	for _, v := range closedTypes {
-		switch v := v.(type) {
-		case *closed.Interface:
-EndLoop:
-			for _, cm := range v.Members {
-				for _, cmt := range cm.TypeName {
-					if s == cmt {
-						for _, ct := range v.Types() {
-							//baseclasses = append(baseclasses, c.typeName(ct.Type(), qf, false, true))
-							//itftypes = append(itftypes, ct.Type().Underlying().(*types.Interface))
-							itftypes = append(itftypes, ct.Type())
-						}
-						break EndLoop
-					}
-				}
-			}
-		}
-	}
-
 	for _, bt := range basetypes {
-		for ifi := len(itftypes)-1; ifi >= 0; ifi-- {
-			if types.Implements(types.NewPointer(bt), itftypes[ifi].Underlying().(*types.Interface)) {
-				itftypes = append(itftypes[:ifi], itftypes[ifi+1:]...) // remove item
-				print("YES!")
-			}
-		}
-
 		btn := c.typeName(bt, qf, false, true)
 		if s.Pkg().Path() == "text/template/parse" && btn == "NodeType" {
 			continue
 		}
 		baseclasses = append(baseclasses, btn)
-	}
-
-	for _, ifi := range itftypes {
-		baseclasses = append([]string{c.typeName(ifi, qf, false, true)}, baseclasses...)
 	}
 
 	base := ""
