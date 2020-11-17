@@ -49,7 +49,7 @@ func (c *Conv) findTypes(ts []*types.TypeName) []*types.TypeName {
 			rt = append(rt, t)
 		}
 	}
-	
+
 	return c.sortTypes(rt)
 }
 
@@ -176,13 +176,54 @@ func (c *Conv) ReturnLineComment(typeObj types.Object) string {
 	for _, fast := range c.AstOf(typeObj) {
 		switch xfast := fast.(type) {
 		case *ast.ImportSpec:
-			return c.ReturnComments(xfast.Comment, false)
+			if xfast.Comment != nil {
+				return c.ReturnComments(xfast.Comment, false)
+			}
 		case *ast.Field:
-			return c.ReturnComments(xfast.Comment, false)
+			if xfast.Comment != nil {
+				return c.ReturnComments(xfast.Comment, false)
+			}
 		case *ast.ValueSpec:
-			return c.ReturnComments(xfast.Comment, false)
+			if xfast.Comment != nil {
+				return c.ReturnComments(xfast.Comment, false)
+			}
 		case *ast.TypeSpec:
-			return c.ReturnComments(xfast.Comment, false)
+			if xfast.Comment != nil {
+				return c.ReturnComments(xfast.Comment, false)
+			}
+		}
+	}
+
+	return ""
+}
+
+func (c *Conv) ReturnLineDoc(typeObj types.Object) string {
+	for _, fast := range c.AstOf(typeObj) {
+		switch xfast := fast.(type) {
+		case *ast.ImportSpec:
+			if xfast.Doc != nil {
+				return c.ReturnComments(xfast.Doc, true)
+			}
+		case *ast.Field:
+			if xfast.Doc != nil {
+				return c.ReturnComments(xfast.Doc, true)
+			}
+		case *ast.ValueSpec:
+			if xfast.Doc != nil {
+				return c.ReturnComments(xfast.Doc, true)
+			}
+		case *ast.TypeSpec:
+			if xfast.Doc != nil {
+				return c.ReturnComments(xfast.Doc, true)
+			}
+		case *ast.GenDecl:
+			if xfast.Doc != nil {
+				return c.ReturnComments(xfast.Doc, true)
+			}
+		case *ast.FuncDecl:
+			if xfast.Doc != nil {
+				return c.ReturnComments(xfast.Doc, true)
+			}
 		}
 	}
 

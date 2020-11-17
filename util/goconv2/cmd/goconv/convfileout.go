@@ -80,6 +80,8 @@ func (cf *ConvFile) outputClass(gf *GenFile, s *types.TypeName, qf types.Qualifi
 	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
 	cf.outputClassDecl(gf, s, qf)
 	gf.I()
+	gf.MultiLine(cf.Conv.ReturnLineDoc(s))
+
 	cf.outputClassMembers(gf, s, qf, true)
 	gf.D()
 }
@@ -90,9 +92,6 @@ func (cf *ConvFile) outputClassDecl(gf *GenFile, s *types.TypeName, qf types.Qua
 
 	for _, bt := range basetypes {
 		btn := cf.typeName(bt, qf, false, true)
-		//if s.Pkg().Path() == "text/template/parse" && btn == "NodeType" {
-		//	continue
-		//}
 		baseclasses = append(baseclasses, btn)
 	}
 
