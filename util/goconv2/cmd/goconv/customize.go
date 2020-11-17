@@ -6,9 +6,35 @@ func (cf *ConvFile) customizeClassBody(gf *GenFile, s *types.TypeName, qf types.
 	if cf.Package.PkgPath == "text/template/parse" {
 		if s.Name() == "NodeType" {
 			return cf.customizeClassBody_TTP_NodeType(gf, s, qf)
+		} else if s.Name() == "Pos" {
+				return cf.customizeClassBody_TTP_Pos(gf, s, qf)
+		} else if s.Name() == "ActionNode" {
+			return cf.customizeClassBody_TTP_ActionNode(gf, s, qf)
 		}
 	}
 
+	return false
+}
+
+func (cf *ConvFile) customizeFuncSignature(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) bool {
+	if cf.Package.PkgPath == "text/template/parse" {
+		if s.Type().(*types.Signature).Recv() != nil {
+			recv := s.Type().(*types.Signature).Recv().Type()
+			if p, pok := recv.(*types.Pointer); pok {
+				recv = p.Elem()
+			}
+
+			recvType := ""
+			if nt, ntok := recv.(*types.Named); ntok {
+				recvType = nt.Obj().Name()
+			}
+			if recvType == "NodeType" {
+				if s.Name() == "Type" {
+					return cf.customizeFuncSignature_TTP_NodeType_Type(gf, s, qf, self)
+				}
+			}
+		}
+	}
 	return false
 }
 
@@ -29,9 +55,13 @@ func (cf *ConvFile) customizeFuncBody(gf *GenFile, s *types.Func, qf types.Quali
 				if s.Name() == "Type" {
 					return cf.customizeFuncBody_TTP_NodeType_Type(gf, s, qf)
 				}
+			} else if recvType == "Pos" {
+				if s.Name() == "Position" {
+					return cf.customizeFuncBody_TTP_Pos_Position(gf, s, qf)
+				}
 			}
 		}
 	}
-	return true
+	return false
 }
 

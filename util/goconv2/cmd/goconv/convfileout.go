@@ -175,6 +175,10 @@ func (cf *ConvFile) outputFunc(gf *GenFile, s *types.Func, qf types.Qualifier, s
 
 func (cf *ConvFile) outputFuncSig(gf *GenFile, s *types.Func, qf types.Qualifier, self bool) {
 	gf.Line("# %s", cf.Conv.FileSet.Position(s.Pos()))
+	if cf.customizeFuncSignature(gf, s, qf, self) {
+		return
+	}
+
 	gf.StartLine()
 	gf.Append("def %s", cf.pythonIdent(s.Name()))
 	gf.Append(cf.returnSignature(s.Type().(*types.Signature), qf, self))
