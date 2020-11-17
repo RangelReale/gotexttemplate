@@ -156,6 +156,10 @@ func (cf *ConvFile) outputClassMembers(gf *GenFile, s *types.TypeName, qf types.
 		}
 	}
 
+	if cf.customizeClassBody(gf, s, qf) {
+		fieldAmount++
+	}
+
 	if checkEmpty && fieldAmount == 0 {
 		gf.Line("pass")
 	}
@@ -241,6 +245,11 @@ func (cf *ConvFile) outputBody(gf *GenFile, s *types.Func, qf types.Qualifier) {
 	} else {
 		gf.Line("# Function body not found")
 	}
+
+	if cf.customizeFuncBody(gf, s, qf) {
+		bodylines++
+	}
+
 	if bodylines == 0 {
 		gf.Line("pass")
 	}
