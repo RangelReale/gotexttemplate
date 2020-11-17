@@ -13,13 +13,6 @@ from . import text_template_parse
 #
 
 
-# c:\go\src\text\template\option.go:12:6
-class missingKeyAction:
-    mapInvalid = 0  # Return an invalid reflect.Value.
-    mapZeroValue = 1  # Return the zero value for the map element.
-    mapError = 2  # Error out
-
-
 # c:\go\src\text\template\funcs.go:424:6
 class kind:
     invalidKind = 0
@@ -29,6 +22,13 @@ class kind:
     floatKind = 4
     stringKind = 5
     uintKind = 6
+
+
+# c:\go\src\text\template\option.go:12:6
+class missingKeyAction:
+    mapInvalid = 0  # Return an invalid reflect.Value.
+    mapZeroValue = 1  # Return the zero value for the map element.
+    mapError = 2  # Error out
 
 
 #

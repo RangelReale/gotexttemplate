@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"go/ast"
+	"go/printer"
 	"go/types"
 	"strings"
 
@@ -162,7 +164,11 @@ func (cf *ConvFile) outputFunc(gf *GenFile, s *types.Func, qf types.Qualifier, s
 	cf.outputFuncSig(gf, s, qf, self)
 
 	gf.I()
-	gf.Line("pass")
+	if self {
+		gf.Line("pass")
+	} else {
+		cf.outputBody(gf, s, qf)
+	}
 	gf.D()
 }
 
@@ -174,6 +180,42 @@ func (cf *ConvFile) outputFuncSig(gf *GenFile, s *types.Func, qf types.Qualifier
 	gf.Append(":")
 	gf.Append(cf.Conv.ReturnLineComment(s))
 	gf.NL()
+}
+
+func (cf *ConvFile) outputBody(gf *GenFile, s *types.Func, qf types.Qualifier) {
+	gf.Line("pass")
+	return
+
+	var fdecl *ast.FuncDecl
+
+	fast := cf.Conv.AstOf(s)
+	if fast != nil {
+		switch xfast := fast.(type) {
+		case *ast.FuncDecl:
+			fdecl = xfast
+		case *ast.Ident:
+			switch xobjast := xfast.Obj.Decl.(type) {
+			case *ast.FuncDecl:
+				fdecl = xobjast
+			}
+		}
+	}
+
+	if fdecl != nil {
+		var fsb strings.Builder
+		printer.Fprint(&fsb, cf.Conv.FileSet, fdecl.Body)
+		//ast.Fprint(&fsb, cf.Conv.FileSet, fdecl, nil)
+		if fsb.String() == "" {
+			gf.Line("pass")
+			return
+		}
+		for _, sline := range strings.Split(fsb.String(), "\n") {
+			gf.StartLine()
+			gf.Append("# ")
+			gf.Line(sline)
+		}
+	}
+	gf.Line("pass")
 }
 
 func (cf *ConvFile) returnSignature(sig *types.Signature, qf types.Qualifier, self bool) string {
@@ -294,10 +336,6 @@ func (cf *ConvFile) returnTuple(t *types.Tuple, variadic bool, qf types.Qualifie
 }
 
 func (cf *ConvFile) typeName(typ types.Type, qf types.Qualifier, topLevel bool, typeDecl bool) string {
-	//if !cf.Conv.Typed {
-	//	return "Any"
-	//}
-
 	var tb strings.Builder
 
 	switch t := typ.(type) {
