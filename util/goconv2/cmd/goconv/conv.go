@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
-	"github.com/hashicorp/go-multierror"
 	"go/token"
-	"go/types"
-	"golang.org/x/tools/go/packages"
-	"golang.org/x/tools/go/types/typeutil"
 	"strings"
+
+	"github.com/hashicorp/go-multierror"
+	"golang.org/x/tools/go/packages"
 )
 
 type Conv struct {
@@ -49,140 +48,6 @@ func (c *Conv) Filename(pkg *packages.Package) string {
 	return fmt.Sprintf("%s.py", c.BaseFilename(pkg))
 }
 
-//func (c *Conv) Output(pkg *packages.Package, out io.Writer) error {
-//	if pkg.Types != nil {
-//		qual := types.RelativeTo(pkg.Types)
-//
-//		gf := NewGenFile()
-//
-//		gf.Line("# type: ignore")
-//		gf.Line("# package: %s", pkg.PkgPath)
-//		gf.NL()
-//
-//		gf.Line("from enum import Enum")
-//		gf.Line("from typing import Callable, Optional, List, Dict, Any, Tuple")
-//		gf.Line("import queue")
-//		gf.Line("from . import goext")
-//
-//		for _, pi := range pkg.Imports {
-//			for _, pc := range c.Packages {
-//				if pc == pkg {
-//					continue
-//				}
-//				if pi == pc {
-//					gf.Line("from . import %s", c.BaseFilename(pi))
-//				}
-//			}
-//		}
-//
-//		gf.NL()
-//
-//		consts, funcs, _, allTypes := c.extract(pkg.Types.Scope())
-//		typs := c.findTypes(allTypes)
-//		structs := c.findStructs(allTypes)
-//		interfaces := c.findInterfaces(allTypes)
-//
-//		ct, err := closed.InPackage(c.FileSet, pkg.Syntax, pkg.Types)
-//		if err != nil {
-//			panic(err)
-//		}
-//
-//		// Enums
-//		gf.NL()
-//		gf.Line("#")
-//		gf.Line("# ENUMS")
-//		gf.Line("#")
-//		gf.NL()
-//		for _, v := range ct {
-//			switch v := v.(type) {
-//			case *closed.Enum:
-//				c.outputEnum(gf, v)
-//				gf.NL()
-//			}
-//		}
-//
-//		// Consts
-//		gf.NL()
-//		gf.Line("#")
-//		gf.Line("# CONSTS")
-//		gf.Line("#")
-//		gf.NL()
-//		for _, s := range consts {
-//			if c.typeIsEnum(s, ct) {
-//				continue
-//			}
-//			gf.NL()
-//			c.outputConst(gf, s, qual)
-//			gf.NL()
-//		}
-//
-//		// Types
-//		gf.Line("#")
-//		gf.Line("# TYPES")
-//		gf.Line("#")
-//		gf.NL()
-//		for _, s := range typs {
-//			if c.typeIsEnum(s, ct) {
-//				continue
-//			}
-//			gf.NL()
-//			c.outputTypes(gf, s, qual)
-//			gf.NL()
-//		}
-//
-//		// Interfaces
-//		gf.NL()
-//		gf.Line("#")
-//		gf.Line("# INTERFACES")
-//		gf.Line("#")
-//		gf.NL()
-//		for _, s := range interfaces {
-//			gf.NL()
-//			c.outputClass(gf, s, qual, ct)
-//			gf.NL()
-//		}
-//
-//		// Structs
-//		gf.NL()
-//		gf.Line("#")
-//		gf.Line("# STRUCTS")
-//		gf.Line("#")
-//		gf.NL()
-//		for _, s := range c.sortStructs(pkg, structs) {
-//			gf.NL()
-//			c.outputClass(gf, s, qual, ct)
-//			gf.NL()
-//		}
-//
-//		// Funcs
-//		gf.NL()
-//		gf.Line("#")
-//		gf.Line("# FUNCS")
-//		gf.Line("#")
-//		gf.NL()
-//		for _, s := range funcs {
-//			gf.NL()
-//			c.outputFunc(gf, s, qual, false)
-//			gf.NL()
-//		}
-//
-//		return gf.Output(out)
-//	}
-//	return nil
-//}
-
-//func (c *Conv) OutputFile(pkg *packages.Package, filename string) error {
-//	f, err := os.Create(filename)
-//	if err != nil {
-//		return err
-//	}
-//	if err = c.Output(pkg, f); err != nil {
-//		_ = f.Close()
-//		return err
-//	}
-//	return f.Close()
-//}
-
 func (c *Conv) checkPackageErrors(pkgs []*packages.Package) error {
 	var errorList error
 	packages.Visit(pkgs, nil, func(pkg *packages.Package) {
@@ -195,95 +60,6 @@ func (c *Conv) checkPackageErrors(pkgs []*packages.Package) error {
 
 func (c *Conv) File(pkg *packages.Package) (*ConvFile, error) {
 	return NewConvFile(c, pkg)
-}
-
-//extract what we care about from scope.
-func (c *Conv) extract(s *types.Scope) (consts []*types.Const, funcs []*types.Func,
-	vars []*types.Var, allTypes []*types.TypeName) {
-	for _, nm := range s.Names() {
-		switch o := s.Lookup(nm).(type) {
-		case *types.Const:
-			consts = append(consts, o)
-		case *types.Var:
-			vars = append(vars, o)
-		case *types.Func:
-			funcs = append(funcs, o)
-		case *types.TypeName:
-			allTypes = append(allTypes, o)
-		default:
-			fmt.Printf("Unknown type: %T\n", o)
-			//discard
-		}
-	}
-	return
-}
-
-func (c *Conv) findTypes(ts []*types.TypeName) (typs []*types.TypeName) {
-	for _, t := range ts {
-		if !t.IsAlias() {
-			switch t.Type().Underlying().(type) {
-			case *types.Struct:
-			case *types.Interface:
-			default:
-				typs = append(typs, t)
-			}
-		} else {
-			typs = append(typs, t)
-		}
-	}
-	return
-}
-
-func (c *Conv) findInterfaces(ts []*types.TypeName) (interfaces []*types.TypeName) {
-	for _, t := range ts {
-		if !t.IsAlias() {
-			switch t.Type().Underlying().(type) {
-			case *types.Interface:
-				interfaces = append(interfaces, t)
-			}
-		}
-	}
-	return
-}
-
-func (c *Conv) findStructs(ts []*types.TypeName) (structs []*types.TypeName) {
-	for _, t := range ts {
-		found := false
-		if !t.IsAlias() {
-			switch t.Type().Underlying().(type) {
-			case *types.Struct:
-				structs = append(structs, t)
-				found = true
-			case *types.Interface:
-				found = true
-			}
-		}
-
-		if !found {
-			imset := typeutil.IntuitiveMethodSet(t.Type(), nil)
-			if len(imset) > 0 {
-				// type with methods
-				structs = append(structs, t)
-			}
-		}
-	}
-	return
-}
-
-func (c *Conv) sortStructs(pkg *packages.Package, ts []*types.TypeName) (structs []*types.TypeName) {
-	switch pkg.PkgPath {
-	case "text/template":
-		for _, t := range ts {
-			if t.Name() == "common" {
-				structs = append([]*types.TypeName{t}, structs...) // prepend
-			} else {
-				structs = append(structs, t)
-			}
-		}
-	default:
-		return ts
-	}
-	return
 }
 
 const PackagesLoadMode packages.LoadMode = packages.NeedName |

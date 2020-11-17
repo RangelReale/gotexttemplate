@@ -18,7 +18,3 @@ func labels(lbl []*types.Const) string {
 
 	return sb.String()
 }
-
-func remove(slice []int, s int) []int {
-	return append(slice[:s], slice[s+1:]...)
-}

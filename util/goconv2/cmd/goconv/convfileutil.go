@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/jimmyfrasche/closed"
 	"go/types"
+
+	"github.com/jimmyfrasche/closed"
 )
 
 func (cf *ConvFile) baseTypes(typ types.Type) (basetypes []types.Type) {

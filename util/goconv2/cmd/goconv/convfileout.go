@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/jimmyfrasche/closed"
 	"go/types"
 	"strings"
+
+	"github.com/jimmyfrasche/closed"
 )
 
 func (cf *ConvFile) outputEnum(gf *GenFile, enum *closed.Enum) {

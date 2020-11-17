@@ -1,11 +1,12 @@
 package main
 
 import (
-	"github.com/jimmyfrasche/closed"
 	"go/types"
-	"golang.org/x/tools/go/packages"
 	"io"
 	"os"
+
+	"github.com/jimmyfrasche/closed"
+	"golang.org/x/tools/go/packages"
 )
 
 type ConvFile struct {
