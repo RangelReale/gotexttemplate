@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"go/types"
+	"sort"
 	"strings"
 
 	"golang.org/x/tools/go/ast/astutil"
@@ -33,41 +34,49 @@ func (c *Conv) extract(s *types.Scope) (consts []*types.Const, funcs []*types.Fu
 	return
 }
 
-func (c *Conv) findTypes(ts []*types.TypeName) (typs []*types.TypeName) {
+func (c *Conv) findTypes(ts []*types.TypeName) []*types.TypeName {
+	var rt []*types.TypeName
+
 	for _, t := range ts {
 		if !t.IsAlias() {
 			switch t.Type().Underlying().(type) {
 			case *types.Struct:
 			case *types.Interface:
 			default:
-				typs = append(typs, t)
+				rt = append(rt, t)
 			}
 		} else {
-			typs = append(typs, t)
+			rt = append(rt, t)
 		}
 	}
-	return
+	
+	return c.sortTypes(rt)
 }
 
-func (c *Conv) findInterfaces(ts []*types.TypeName) (interfaces []*types.TypeName) {
+func (c *Conv) findInterfaces(ts []*types.TypeName) []*types.TypeName {
+	var rt []*types.TypeName
+
 	for _, t := range ts {
 		if !t.IsAlias() {
 			switch t.Type().Underlying().(type) {
 			case *types.Interface:
-				interfaces = append(interfaces, t)
+				rt = append(rt, t)
 			}
 		}
 	}
-	return
+
+	return c.sortTypes(rt)
 }
 
-func (c *Conv) findStructs(ts []*types.TypeName) (structs []*types.TypeName) {
+func (c *Conv) findStructs(ts []*types.TypeName) []*types.TypeName {
+	var rt []*types.TypeName
+
 	for _, t := range ts {
 		found := false
 		if !t.IsAlias() {
 			switch t.Type().Underlying().(type) {
 			case *types.Struct:
-				structs = append(structs, t)
+				rt = append(rt, t)
 				found = true
 			case *types.Interface:
 				found = true
@@ -78,35 +87,65 @@ func (c *Conv) findStructs(ts []*types.TypeName) (structs []*types.TypeName) {
 			imset := typeutil.IntuitiveMethodSet(t.Type(), nil)
 			if len(imset) > 0 {
 				// type with methods
-				structs = append(structs, t)
+				rt = append(rt, t)
 			}
 		}
 	}
-	return
+
+	return c.sortTypes(rt)
 }
 
-func (c *Conv) sortStructs(pkg *packages.Package, ts []*types.TypeName) (structs []*types.TypeName) {
+func (c *Conv) sortStructs(pkg *packages.Package, ts []*types.TypeName) []*types.TypeName {
+	var prt []*types.TypeName
+	var rt []*types.TypeName
+
 	switch pkg.PkgPath {
 	case "text/template":
 		for _, t := range ts {
 			if t.Name() == "common" {
-				structs = append([]*types.TypeName{t}, structs...) // prepend
+				prt = append(prt, t)
+				//structs = append([]*types.TypeName{t}, structs...) // prepend
 			} else {
-				structs = append(structs, t)
+				rt = append(rt, t)
+				//structs = append(structs, t)
 			}
 		}
 	case "text/template/parse":
 		for _, t := range ts {
 			if t.Name() == "Pos" {
-				structs = append([]*types.TypeName{t}, structs...) // prepend
+				prt = append(prt, t)
+				//structs = append([]*types.TypeName{t}, structs...) // prepend
 			} else {
-				structs = append(structs, t)
+				rt = append(rt, t)
+				//structs = append(structs, t)
 			}
 		}
 	default:
 		return ts
 	}
-	return
+
+	return append(prt, c.sortTypes(rt)...)
+}
+
+func (c *Conv) sortTypes(ts []*types.TypeName) []*types.TypeName {
+	var ret []*types.TypeName
+
+	rts := map[string]*types.TypeName{}
+	for _, t := range ts {
+		rts[t.Name()] = t
+	}
+
+	keys := make([]string, 0, len(rts))
+	for k := range rts {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		ret = append(ret, rts[k])
+	}
+
+	return ret
 }
 
 func (c *Conv) isExternalImport(pkg *types.Package) bool {
