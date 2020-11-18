@@ -19,9 +19,9 @@ func (cf *ConvFile) customizeFuncSignature_TTP_NodeType_Type(gf *GenFile, s *typ
 	return true
 }
 
-func (cf *ConvFile) customizeFuncBody_TTP_NodeType_Type(gf *GenFile, s *types.Func, qf types.Qualifier) bool {
+func (cf *ConvFile) customizeFuncBody_TTP_NodeType_Type(gf *GenFile, s *types.Func, qf types.Qualifier) CustomizeAction {
 	gf.Line("return self.nodetype")
-	return true
+	return CustomizeAction_FinishedAndDefault
 }
 
 //
@@ -36,9 +36,9 @@ func (cf *ConvFile) customizeClassBody_TTP_Pos(gf *GenFile, s *types.TypeName, q
 	return true
 }
 
-func (cf *ConvFile) customizeFuncBody_TTP_Pos_Position(gf *GenFile, s *types.Func, qf types.Qualifier) bool {
+func (cf *ConvFile) customizeFuncBody_TTP_Pos_Position(gf *GenFile, s *types.Func, qf types.Qualifier) CustomizeAction {
 	gf.Line("return self.pos")
-	return true
+	return CustomizeAction_FinishedAndDefault
 }
 
 //
@@ -48,11 +48,16 @@ func (cf *ConvFile) customizeClassBody_TTP_ActionNode(gf *GenFile, s *types.Type
 	gf.NL()
 	gf.Line("def __init__(self, tr, line, pipe, pos):")
 	gf.I()
-	gf.Line("NodeType.__init__(NodeType.NodeAction)")
-	gf.Line("Pos.__init__(pos)")
+	gf.Line("NodeType.__init__(self, NodeType.NodeAction)")
+	gf.Line("Pos.__init__(self, pos)")
 	gf.Line("self.tr = tr")
 	gf.Line("self.Line = line")
 	gf.Line("self.Pipe = pipe")
 	gf.D()
 	return true
 }
+
+//func (cf *ConvFile) customizeFuncBody_TTP_ActionNode_tree(gf *GenFile, s *types.Func, qf types.Qualifier) CustomizeAction {
+//	gf.Line("return self.tr")
+//	return CustomizeAction_FinishedAndDefault
+//}

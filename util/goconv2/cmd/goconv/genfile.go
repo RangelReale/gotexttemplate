@@ -28,6 +28,11 @@ func (g *GenFile) StartLine() {
 	}
 }
 
+func (g *GenFile) EndLine(format string, args ...interface{}) {
+	g.Append(format, args...)
+	g.Append("\n")
+}
+
 func (g *GenFile) Line(format string, args ...interface{}) {
 	g.StartLine()
 	g.Append(format, args...)

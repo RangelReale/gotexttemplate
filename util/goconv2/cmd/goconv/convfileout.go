@@ -215,43 +215,52 @@ func (cf *ConvFile) outputBody(gf *GenFile, s *types.Func, qf types.Qualifier) {
 	}
 
 	bodylines := 0
+
 	if fdecl != nil {
 		gf.MultiLine(cf.Conv.ReturnComments(fdecl.Doc, true))
-
-		var fsb strings.Builder
-		printer.Fprint(&fsb, cf.Conv.FileSet, fdecl.Body)
-		//ast.Fprint(&fsb, cf.Conv.FileSet, fdecl, nil)
-		for _, sline := range strings.Split(fsb.String(), "\n") {
-			gf.StartLine()
-			gf.Append("# ")
-			gf.Line(sline)
-			//bodylines++
-		}
-
-		xcompiler := compiler.NewXCompiler(cf.Package.TypesInfo, cf.Conv.FileSet, false)
-		var xsb strings.Builder
-		xcfunc := xcompiler.CompileFuncDecl(fdecl, false)
-
-		pyWriter := pythonast.NewWriter(&xsb)
-		pyWriter.WriteStmts(xcfunc.Def.Body)
-
-		if xsb.String() != "" {
-			gf.Line("# ############# CODE GENERATION #############")
-		}
-
-		for _, sline := range strings.Split(xsb.String(), "\n") {
-			gf.StartLine()
-			gf.Append("# ")
-			gf.Line(sline)
-			//bodylines++
-		}
-
-	} else {
-		gf.Line("# Function body not found")
 	}
 
-	if cf.customizeFuncBody(gf, s, qf) {
+	bodyaction := cf.customizeFuncBody(gf, s, qf)
+	if bodyaction == CustomizeAction_Finished || bodyaction == CustomizeAction_FinishedAndDefault {
 		bodylines++
+	}
+
+	if bodyaction != CustomizeAction_Finished {
+		if fdecl != nil {
+			var fsb strings.Builder
+			printer.Fprint(&fsb, cf.Conv.FileSet, fdecl.Body)
+			//ast.Fprint(&fsb, cf.Conv.FileSet, fdecl, nil)
+			for _, sline := range strings.Split(fsb.String(), "\n") {
+				gf.StartLine()
+				gf.Append("# ")
+				gf.EndLine(sline)
+				//bodylines++
+			}
+
+			xcompiler := compiler.NewXCompiler(cf.Package.TypesInfo, cf.Conv.FileSet, false, true)
+			var xsb strings.Builder
+			xcfunc := xcompiler.CompileFuncDecl(fdecl, false)
+
+			pyWriter := pythonast.NewWriter(&xsb)
+			pyWriter.WriteStmts(xcfunc.Def.Body)
+
+			if xsb.String() != "" {
+				gf.Line("# ############# CODE GENERATION #############")
+			}
+
+			for _, sline := range strings.Split(xsb.String(), "\n") {
+				gf.StartLine()
+				if bodyaction != CustomizeAction_UseGenerated {
+					gf.Append("# ")
+				} else {
+					bodylines++
+				}
+				gf.EndLine(sline)
+			}
+
+		} else {
+			gf.Line("# Function body not found")
+		}
 	}
 
 	if bodylines == 0 {
